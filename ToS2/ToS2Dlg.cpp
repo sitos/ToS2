@@ -440,48 +440,59 @@ void CaptureScreenTop(const HDC ScreenDC, struct MyColorRef *ScreenColor, const 
 
 void PrintTable(const unsigned int CurrentTable[COLUMN][ROW], const BOOL PuzzleTable[COLUMN][ROW], const BOOL StopTable[COLUMN][ROW]){
 	int Index1, Index2;
-	StrCatW(DisplayMessage, L"目前盤面:\r\n");
+	wchar_t TitleLine[SHORT_MESSAGE];
+	wchar_t TableLine[ROW][SHORT_MESSAGE];
+
+	StrCpyW(TitleLine, L"");
+	for(Index2 = 0; Index2 < ROW; Index2++)
+		StrCpyW(TableLine[Index2], L"");
+
+	StrCatW(TitleLine, L"目前盤面:\t\t");
 	for(Index2 = 0; Index2 < ROW; Index2++){
 		for(Index1 = 0; Index1 < COLUMN; Index1++){
 			if(CurrentTable[Index1][Index2] == 1)
-				StrCatW(DisplayMessage, L"光");
+				StrCatW(TableLine[Index2], L"光");
 			else if(CurrentTable[Index1][Index2] == 2)
-				StrCatW(DisplayMessage, L"心");
+				StrCatW(TableLine[Index2], L"心");
 			else if(CurrentTable[Index1][Index2] == 3)
-				StrCatW(DisplayMessage, L"水");
+				StrCatW(TableLine[Index2], L"水");
 			else if(CurrentTable[Index1][Index2] == 4)
-				StrCatW(DisplayMessage, L"暗");
+				StrCatW(TableLine[Index2], L"暗");
 			else if(CurrentTable[Index1][Index2] == 5)
-				StrCatW(DisplayMessage, L"木");
+				StrCatW(TableLine[Index2], L"木");
 			else if(CurrentTable[Index1][Index2] == 6)
-				StrCatW(DisplayMessage, L"火");
+				StrCatW(TableLine[Index2], L"火");
 			else if(CurrentTable[Index1][Index2] == 7)
-				StrCatW(DisplayMessage, L"？");
+				StrCatW(TableLine[Index2], L"？");
 		}
-		StrCatW(DisplayMessage, L"\r\n");
+		StrCatW(TableLine[Index2], L"\t");
 	}
 
-	StrCatW(DisplayMessage, L"拼圖盾位置:\r\n");
+	StrCatW(TitleLine, L"拼圖盾位置:\t");
 	for(Index2 = 0; Index2 < ROW; Index2++){
 		for(Index1 = 0; Index1 < COLUMN; Index1++){
 			if(PuzzleTable[Index1][Index2])
-				StrCatW(DisplayMessage, L"●");
+				StrCatW(TableLine[Index2], L"●");
 			else
-				StrCatW(DisplayMessage, L"○");
+				StrCatW(TableLine[Index2], L"○");
 		}
-		StrCatW(DisplayMessage, L"\r\n");
+		StrCatW(TableLine[Index2], L"\t\t");
 	}
 
-	StrCatW(DisplayMessage, L"風化珠位置:\r\n");
+	StrCatW(TitleLine, L"風化珠位置:\r\n");
 	for(Index2 = 0; Index2 < ROW; Index2++){
 		for(Index1 = 0; Index1 < COLUMN; Index1++){
 			if(StopTable[Index1][Index2])
-				StrCatW(DisplayMessage, L"※");
+				StrCatW(TableLine[Index2], L"※");
 			else
-				StrCatW(DisplayMessage, L"○");
+				StrCatW(TableLine[Index2], L"○");
 		}
-		StrCatW(DisplayMessage, L"\r\n");
+		StrCatW(TableLine[Index2], L"\r\n");
 	}
+
+	StrCatW(DisplayMessage, TitleLine);
+	for(Index2 = 0; Index2 < ROW; Index2++)
+		StrCatW(DisplayMessage, TableLine[Index2]);
 }
 
 int GetTable(unsigned int CurrentTable[COLUMN][ROW], BOOL PuzzleTable[COLUMN][ROW], BOOL StopTable[COLUMN][ROW]){
