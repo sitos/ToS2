@@ -56,6 +56,24 @@ CToS2Dlg::CToS2Dlg(CWnd* pParent /*=NULL*/)
 	, CheckRealMouse(FALSE)
 	, CheckNoOblique(TRUE)
 	, ServerIP(0)
+	, MinWaterKeep(-1)
+	, MinFireKeep(-1)
+	, MinWoodKeep(-1)
+	, MinLightKeep(-1)
+	, MinDarkKeep(-1)
+	, MinHeartKeep(-1)
+	, MaxWaterEliminate(-1)
+	, MaxFireEliminate(-1)
+	, MaxWoodEliminate(-1)
+	, MaxLightEliminate(-1)
+	, MaxDarkEliminate(-1)
+	, MaxHeartEliminate(-1)
+	, CheckCountWaterScore(TRUE)
+	, CheckCountFireScore(TRUE)
+	, CheckCountWoodScore(TRUE)
+	, CheckCountLightScore(TRUE)
+	, CheckCountDarkScore(TRUE)
+	, CheckCountHeartScore(TRUE)
 {
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 }
@@ -76,6 +94,24 @@ void CToS2Dlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Check(pDX, IDC_CHECK_No_Oblique, CheckNoOblique);
 	DDX_IPAddress(pDX, IDC_IPADDRESS_Server_IP, ServerIP);
 	DDX_Control(pDX, IDC_IPADDRESS_Server_IP, ServerIPControl);
+	DDX_Text(pDX, IDC_EDIT_Min_Water_Keep, MinWaterKeep);
+	DDX_Text(pDX, IDC_EDIT_Min_Fire_Keep, MinFireKeep);
+	DDX_Text(pDX, IDC_EDIT_Min_Wood_Keep, MinWoodKeep);
+	DDX_Text(pDX, IDC_EDIT_Min_Light_Keep, MinLightKeep);
+	DDX_Text(pDX, IDC_EDIT_Min_Dark_Keep, MinDarkKeep);
+	DDX_Text(pDX, IDC_EDIT_Min_Heart_Keep, MinHeartKeep);
+	DDX_Text(pDX, IDC_EDIT_Max_Water_Eliminate, MaxWaterEliminate);
+	DDX_Text(pDX, IDC_EDIT_Max_Fire_Eliminate, MaxFireEliminate);
+	DDX_Text(pDX, IDC_EDIT_Max_Wood_Eliminate, MaxWoodEliminate);
+	DDX_Text(pDX, IDC_EDIT_Max_Light_Eliminate, MaxLightEliminate);
+	DDX_Text(pDX, IDC_EDIT_Max_Dark_Eliminate, MaxDarkEliminate);
+	DDX_Text(pDX, IDC_EDIT_Max_Heart_Eliminate, MaxHeartEliminate);
+	DDX_Check(pDX, IDC_CHECK_Count_Water_Score, CheckCountWaterScore);
+	DDX_Check(pDX, IDC_CHECK_Count_Fire_Score, CheckCountFireScore);
+	DDX_Check(pDX, IDC_CHECK_Count_Wood_Score, CheckCountWoodScore);
+	DDX_Check(pDX, IDC_CHECK_Count_Light_Score, CheckCountLightScore);
+	DDX_Check(pDX, IDC_CHECK_Count_Dark_Score, CheckCountDarkScore);
+	DDX_Check(pDX, IDC_CHECK_Count_Heart_Score, CheckCountHeartScore);
 }
 
 BEGIN_MESSAGE_MAP(CToS2Dlg, CDialogEx)
@@ -85,6 +121,7 @@ BEGIN_MESSAGE_MAP(CToS2Dlg, CDialogEx)
 	ON_WM_TIMER()
 	ON_BN_CLICKED(IDOK, &CToS2Dlg::OnBnClickedOk)
 	ON_CBN_SELCHANGE(IDC_COMBO_Type, &CToS2Dlg::OnSelchangeComboType)
+	ON_BN_CLICKED(IDC_BUTTON_Default, &CToS2Dlg::OnBnClickedButtonDefault)
 END_MESSAGE_MAP()
 
 // CToS2Dlg 訊息處理常式
@@ -190,6 +227,9 @@ BOOL RealMouse = FALSE;
 BOOL NoOblique = FALSE;
 int ExecutionType = 0;
 DWORD ServerIPAddress = 0;
+
+int MinKeep[6], MaxEliminate[6];
+BOOL ColorCountScore[6];
 
 const int TargetX[COLUMN] = {36, 116, 196, 276, 356, 436};
 const int TargetY[ROW] = {426, 506, 586, 666, 746};
@@ -919,8 +959,10 @@ void MarkDFS(int Mark[COLUMN][ROW], const BOOL PuzzleTable[COLUMN][ROW], int X, 
 	}
 }
 
-long long int GetScore(const int EliminateCount){
-	if(NeedHighPower && EliminateCount > 4)
+long long int GetScore(const int EliminateCount, int ThisColor){
+	if(NeedHighPower && EliminateCount > 4 && ColorCountScore[ThisColor - 1])
+		return 10000 * SCORE_OFFSET + EliminateCount * SCORE_OFFSET;
+	else if(ColorCountScore[ThisColor - 1])
 		return 1000 * SCORE_OFFSET + EliminateCount * SCORE_OFFSET;
 	else
 		return 100 * SCORE_OFFSET + EliminateCount * SCORE_OFFSET;
@@ -952,8 +994,8 @@ long long int CountScore(int Mark[COLUMN][ROW], const BOOL PuzzleTable[COLUMN][R
 			if(*MeetPuzzleCount < PuzzleCount)
 				*MeetPuzzleCount = PuzzleCount;
 
-			Score += GetScore(EliminateCount);
-			if(EliminateCount > 5)
+			Score += GetScore(EliminateCount, ThisColor);
+			if(EliminateCount > 5 && ThisColor != 2)
 				*IsEliminateSix = TRUE;
 
 			(*Combo)++;
@@ -973,10 +1015,19 @@ long long int EvaluateScore(const unsigned int SourceTable[COLUMN][ROW], const B
 	long long int TotalAdditionalScore = 0;
 	BOOL IsEliminateSix = FALSE;
 
-	for(Index1 = 0; Index1 < COLUMN; Index1++)
-		for(Index2 = 0; Index2 < ROW; Index2++)
-			LocalTable[Index1][Index2] = SourceTable[Index1][Index2];
+	int FirstColorCount[6], SecondColorCount[6];
 
+	for(Index1 = 0; Index1 < 6; Index1++){
+		FirstColorCount[Index1] = 0;
+		SecondColorCount[Index1] = 0;
+	}
+
+	for(Index1 = 0; Index1 < COLUMN; Index1++)
+		for(Index2 = 0; Index2 < ROW; Index2++){
+			LocalTable[Index1][Index2] = SourceTable[Index1][Index2];
+			if(LocalTable[Index1][Index2] > 0 && LocalTable[Index1][Index2] < 7)
+				FirstColorCount[LocalTable[Index1][Index2] - 1]++;
+		}
 
 	while(1){
 		BOOL Change1 = FALSE;
@@ -1059,9 +1110,26 @@ long long int EvaluateScore(const unsigned int SourceTable[COLUMN][ROW], const B
 					AdditionalScore += 1000;
 				if(Index2 < ROW - 2 && LocalTable[Index1][Index2] == LocalTable[Index1][Index2 + 1] && LocalTable[Index1][Index2 + 2] == -1)
 					AdditionalScore += 1000;
+				if(Index1 < COLUMN - 2 && LocalTable[Index1 + 1][Index2] == -1 && LocalTable[Index1][Index2] == LocalTable[Index1 + 2][Index2])
+					AdditionalScore += 1000;
 			}
 
 		TotalAdditionalScore += AdditionalScore;
+	}
+
+	for(Index1 = 0; Index1 < COLUMN; Index1++)
+		for(Index2 = 0; Index2 < ROW; Index2++){
+			if(LocalTable[Index1][Index2] > 0 && LocalTable[Index1][Index2] < 7)
+				SecondColorCount[LocalTable[Index1][Index2] - 1]++;
+		}
+
+	for(Index1 = 0; Index1 < 6; Index1++){
+		if(MinKeep[Index1] != -1 && FirstColorCount[Index1] >= MinKeep[Index1] && SecondColorCount[Index1] < MinKeep[Index1])
+			return 0;
+		if(MinKeep[Index1] != -1 && FirstColorCount[Index1] < MinKeep[Index1] && FirstColorCount[Index1] != SecondColorCount[Index1])
+			return 0;
+		if(MaxEliminate[Index1] != -1 && FirstColorCount[Index1] - SecondColorCount[Index1] > MaxEliminate[Index1])
+			return 0;
 	}
 
 	*FinalCombo = Combo;
@@ -1085,11 +1153,33 @@ long long int EvaluateScore(const unsigned int SourceTable[COLUMN][ROW], const B
 	if(Score < LowerBoundScore - SCORE_OFFSET)
 		return 0;
 
+	for(Index1 = 0; Index1 < COLUMN; Index1++)
+		for(Index2 = 0; Index2 < ROW; Index2++){
+			if(LocalTable[Index1][Index2] == -1 || LocalTable[Index1][Index2] == 7)
+				continue;
+			if(Index1 > 1 && LocalTable[Index1][Index2] == LocalTable[Index1 - 1][Index2] && LocalTable[Index1 - 2][Index2] == -1)
+				if(MinKeep[LocalTable[Index1][Index2] - 1] != -1 || MaxEliminate[LocalTable[Index1][Index2] - 1] != -1)
+					return 0;
+			if(Index1 < COLUMN - 2 && LocalTable[Index1][Index2] == LocalTable[Index1 + 1][Index2] && LocalTable[Index1 + 2][Index2] == -1)
+				if(MinKeep[LocalTable[Index1][Index2] - 1] != -1 || MaxEliminate[LocalTable[Index1][Index2] - 1] != -1)
+					return 0;
+			if(Index2 > 1 && LocalTable[Index1][Index2] == LocalTable[Index1][Index2 - 1] && LocalTable[Index1][Index2 - 2] == -1)
+				if(MinKeep[LocalTable[Index1][Index2] - 1] != -1 || MaxEliminate[LocalTable[Index1][Index2] - 1] != -1)
+					return 0;
+			if(Index2 < ROW - 2 && LocalTable[Index1][Index2] == LocalTable[Index1][Index2 + 1] && LocalTable[Index1][Index2 + 2] == -1)
+				if(MinKeep[LocalTable[Index1][Index2] - 1] != -1 || MaxEliminate[LocalTable[Index1][Index2] - 1] != -1)
+					return 0;
+			if(Index1 < COLUMN - 2 && LocalTable[Index1 + 1][Index2] == -1 && LocalTable[Index1][Index2] == LocalTable[Index1 + 2][Index2])
+				if(MinKeep[LocalTable[Index1][Index2] - 1] != -1 || MaxEliminate[LocalTable[Index1][Index2] - 1] != -1)
+					return 0;
+		}
+
+
 	long long int NearScore = 0;
 	int Index3, Index4;
 	for(Index1 = 0; Index1 < COLUMN; Index1++)
 		for(Index2 = 0; Index2 < ROW; Index2++){
-			if(LocalTable[Index1][Index2] == -1)
+			if(LocalTable[Index1][Index2] < 1 || LocalTable[Index1][Index2] > 6)
 				continue;
 			if(Index1 > 0 && LocalTable[Index1][Index2] == LocalTable[Index1 - 1][Index2]){
 				NearScore += 100;
@@ -1135,12 +1225,7 @@ long long int EvaluateScore(const unsigned int SourceTable[COLUMN][ROW], const B
 			}
 		}
 
-	if(Score != 0){
-		if(TargetCombo == 0)
-			Score += NearScore;
-		else
-			Score -= NearScore;
-	}
+	Score += NearScore;
 
 	return Score;
 }
@@ -2343,6 +2428,11 @@ void MainFunction(const SOCKET Connection){
 
 		if(Pause)
 			return;
+
+		if(BestPath.Score == 0){
+			StrCatW(DisplayMessage, L"找不到適合的解\r\n");
+			return;
+		}
 	}
 
 	if(ExecutionType == 2){
@@ -2457,6 +2547,27 @@ void CToS2Dlg::OnTimer(UINT_PTR nIDEvent)
 	NoOblique = CheckNoOblique;
 	ServerIPAddress = ServerIP;
 
+	MinKeep[0] = MinLightKeep;
+	MinKeep[1] = MinHeartKeep;
+	MinKeep[2] = MinWaterKeep;
+	MinKeep[3] = MinDarkKeep;
+	MinKeep[4] = MinWoodKeep;
+	MinKeep[5] = MinFireKeep;
+
+	MaxEliminate[0] = MaxLightEliminate;
+	MaxEliminate[1] = MaxHeartEliminate;
+	MaxEliminate[2] = MaxWaterEliminate;
+	MaxEliminate[3] = MaxDarkEliminate;
+	MaxEliminate[4] = MaxWoodEliminate;
+	MaxEliminate[5] = MaxFireEliminate;
+
+	ColorCountScore[0] = CheckCountLightScore;
+	ColorCountScore[1] = CheckCountHeartScore;
+	ColorCountScore[2] = CheckCountWaterScore;
+	ColorCountScore[3] = CheckCountDarkScore;
+	ColorCountScore[4] = CheckCountWoodScore;
+	ColorCountScore[5] = CheckCountFireScore;
+
 	ExecutionType = ComboExecutionType.GetCurSel();
 
 	if(StrCmpW(DisplayMessage, LocalMessage)){
@@ -2556,4 +2667,15 @@ void CToS2Dlg::OnSelchangeComboType()
 	ButtonOK.EnableWindow(FALSE);
 	ServerIPControl.EnableWindow(FALSE);
 	MyBeginThread();
+}
+
+
+void CToS2Dlg::OnBnClickedButtonDefault()
+{
+	// TODO: 在此加入控制項告知處理常式程式碼
+
+	MinLightKeep = MinHeartKeep = MinWaterKeep = MinDarkKeep = MinWoodKeep = MinFireKeep = -1;
+	MaxLightEliminate = MaxHeartEliminate = MaxWaterEliminate = MaxDarkEliminate = MaxWoodEliminate = MaxFireEliminate = -1;
+	CheckCountLightScore = CheckCountHeartScore = CheckCountWaterScore = CheckCountDarkScore = CheckCountWoodScore = CheckCountFireScore = TRUE;
+	UpdateData(FALSE);
 }
