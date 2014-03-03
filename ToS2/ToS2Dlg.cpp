@@ -74,6 +74,7 @@ CToS2Dlg::CToS2Dlg(CWnd* pParent /*=NULL*/)
 	, CheckCountLightScore(TRUE)
 	, CheckCountDarkScore(TRUE)
 	, CheckCountHeartScore(TRUE)
+	, CheckForceKeep(FALSE)
 {
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 }
@@ -112,6 +113,7 @@ void CToS2Dlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Check(pDX, IDC_CHECK_Count_Light_Score, CheckCountLightScore);
 	DDX_Check(pDX, IDC_CHECK_Count_Dark_Score, CheckCountDarkScore);
 	DDX_Check(pDX, IDC_CHECK_Count_Heart_Score, CheckCountHeartScore);
+	DDX_Check(pDX, IDC_CHECK_Force_Keep, CheckForceKeep);
 }
 
 BEGIN_MESSAGE_MAP(CToS2Dlg, CDialogEx)
@@ -227,6 +229,7 @@ BOOL RealMouse = FALSE;
 BOOL NoOblique = FALSE;
 int ExecutionType = 0;
 DWORD ServerIPAddress = 0;
+BOOL ForceKeep = FALSE;
 
 int MinKeep[6], MaxEliminate[6];
 BOOL ColorCountScore[6];
@@ -261,7 +264,7 @@ int GetColorByRGB(const struct MyColorRef PixelRGB){
 		else
 			return 0;
 	}
-	if(CompareRGB(PixelRGB, 214, 107, 5) || CompareRGB(PixelRGB, 219, 126, 39)){ // «G¶À
+	if(CompareRGB(PixelRGB, 214, 107, 5) || CompareRGB(PixelRGB, 219, 126, 39) || CompareRGB(PixelRGB, 183, 97, 14)){ // «G¶À
 		if(Color == 0)
 			Color = 1;
 		else
@@ -279,7 +282,7 @@ int GetColorByRGB(const struct MyColorRef PixelRGB){
 		else
 			return 0;
 	}
-	if(CompareRGB(PixelRGB, 47, 107, 139)){ // ·tÂÅ
+	if(CompareRGB(PixelRGB, 47, 107, 139) || CompareRGB(PixelRGB, 50, 95, 119)){ // ·tÂÅ
 		if(Color == 0)
 			Color = 3;
 		else
@@ -297,7 +300,7 @@ int GetColorByRGB(const struct MyColorRef PixelRGB){
 		else
 			return 0;
 	}
-	if(CompareRGB(PixelRGB, 201, 33, 245) || CompareRGB(PixelRGB, 200, 13, 245)){ // «Gµµ
+	if(CompareRGB(PixelRGB, 201, 33, 245) || CompareRGB(PixelRGB, 200, 13, 245) || CompareRGB(PixelRGB, 180, 18, 217)){ // «Gµµ
 		if(Color == 0)
 			Color = 4;
 		else
@@ -321,7 +324,7 @@ int GetColorByRGB(const struct MyColorRef PixelRGB){
 		else
 			return 0;
 	}
-	if(CompareRGB(PixelRGB, 241, 105, 100) || CompareRGB(PixelRGB, 238, 69, 62) || CompareRGB(PixelRGB, 244, 136, 134)){ // «G¬õ
+	if(CompareRGB(PixelRGB, 241, 105, 100) || CompareRGB(PixelRGB, 238, 69, 62) || CompareRGB(PixelRGB, 244, 136, 134) || CompareRGB(PixelRGB, 203, 93, 91)){ // «G¬õ
 		if(Color == 0)
 			Color = 6;
 		else
@@ -1157,6 +1160,13 @@ long long int EvaluateScore(const unsigned int SourceTable[COLUMN][ROW], const B
 		for(Index2 = 0; Index2 < ROW; Index2++){
 			if(LocalTable[Index1][Index2] == -1 || LocalTable[Index1][Index2] == 7)
 				continue;
+
+			if(ForceKeep){
+				if(MinKeep[LocalTable[Index1][Index2] - 1] != -1 || MaxEliminate[LocalTable[Index1][Index2] - 1] != -1)
+					if(Index2 > 1 && LocalTable[Index1][Index2 - 1] == -1)
+						return 0;
+			}
+
 			if(Index1 > 1 && LocalTable[Index1][Index2] == LocalTable[Index1 - 1][Index2] && LocalTable[Index1 - 2][Index2] == -1)
 				if(MinKeep[LocalTable[Index1][Index2] - 1] != -1 || MaxEliminate[LocalTable[Index1][Index2] - 1] != -1)
 					return 0;
@@ -2384,6 +2394,17 @@ void MainFunction(const SOCKET Connection){
 		memcpy(Pointer, &TargetCombo, sizeof(TargetCombo));
 		Pointer += sizeof(TargetCombo);
 
+		memcpy(Pointer, &NoOblique, sizeof(NoOblique));
+		Pointer += sizeof(NoOblique);
+		memcpy(Pointer, &ForceKeep, sizeof(ForceKeep));
+		Pointer += sizeof(ForceKeep);
+		memcpy(Pointer, MinKeep, sizeof(MinKeep));
+		Pointer += sizeof(MinKeep);
+		memcpy(Pointer, MaxEliminate, sizeof(MaxEliminate));
+		Pointer += sizeof(MaxEliminate);
+		memcpy(Pointer, ColorCountScore, sizeof(ColorCountScore));
+		Pointer += sizeof(ColorCountScore);		
+
 		send(Connection, SocketMessage, (int) (Pointer - SocketMessage), 0);
 	}
 
@@ -2407,6 +2428,17 @@ void MainFunction(const SOCKET Connection){
 		Pointer += sizeof(NeedTwoSecond);
 		memcpy(&TargetCombo, Pointer, sizeof(TargetCombo));
 		Pointer += sizeof(TargetCombo);
+
+		memcpy(&NoOblique, Pointer, sizeof(NoOblique));
+		Pointer += sizeof(NoOblique);
+		memcpy(&ForceKeep, Pointer, sizeof(ForceKeep));
+		Pointer += sizeof(ForceKeep);
+		memcpy(MinKeep, Pointer, sizeof(MinKeep));
+		Pointer += sizeof(MinKeep);
+		memcpy(MaxEliminate, Pointer, sizeof(MaxEliminate));
+		Pointer += sizeof(MaxEliminate);
+		memcpy(ColorCountScore, Pointer, sizeof(ColorCountScore));
+		Pointer += sizeof(ColorCountScore);		
 	}
 
 	int MovingType;
@@ -2546,6 +2578,7 @@ void CToS2Dlg::OnTimer(UINT_PTR nIDEvent)
 	Pause = CheckPause;
 	NoOblique = CheckNoOblique;
 	ServerIPAddress = ServerIP;
+	ForceKeep = CheckForceKeep;
 
 	MinKeep[0] = MinLightKeep;
 	MinKeep[1] = MinHeartKeep;

@@ -111,4 +111,5 @@ public:
 	BOOL CheckCountDarkScore;
 	BOOL CheckCountHeartScore;
 	afx_msg void OnBnClickedButtonDefault();
+	BOOL CheckForceKeep;
 };
