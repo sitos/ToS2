@@ -1263,6 +1263,36 @@ long long int EvaluateScore(const unsigned int SourceTable[COLUMN][ROW], const B
 
 	Score += NearScore;
 
+	int ColorIndex;
+	for(ColorIndex = 1; ColorIndex < 7; ColorIndex++){
+		int TotalCount = 0;
+		int TotalX = 0, TotalY = 0;
+		for(Index1 = 0; Index1 < COLUMN; Index1++)
+			for(Index2 = 0; Index2 < ROW; Index2++)
+				if(LocalTable[Index1][Index2] == ColorIndex){
+					TotalX += Index1;
+					TotalY += Index2;
+					TotalCount++;
+				}
+		
+		if(TotalCount < 3)
+			continue;
+
+		int TotalDistance = 0;
+		int AvgX = TotalX / TotalCount;
+		int AvgY = TotalY / TotalCount;
+		for(Index1 = 0; Index1 < COLUMN; Index1++)
+			for(Index2 = 0; Index2 < ROW; Index2++){
+				if(LocalTable[Index1][Index2] == ColorIndex){
+					TotalDistance += (Index1 > AvgX ? Index1 - AvgX : AvgX - Index1);
+					TotalDistance += (Index2 > AvgY ? Index2 - AvgY : AvgY - Index2);
+				}
+			}
+		TotalDistance /= TotalCount;
+
+		Score += (10 - TotalDistance) * 100000;
+	}
+
 	return Score;
 }
 
