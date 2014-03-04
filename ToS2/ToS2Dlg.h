@@ -48,7 +48,7 @@
 #define COLOR_DIFF			20
 
 #define SCORE_OFFSET				(long long int) 100000
-#define MEET_PUZZLE_SCORE			(long long int) 10000000000000
+#define MEET_PUZZLE_SCORE			(long long int) 100000000000000
 #define PARTIAL_MEET_PUZZLE_SCORE	(long long int) 100000000000
 
 // CToS2Dlg ¹ï¸Ü¤è¶ô

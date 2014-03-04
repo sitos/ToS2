@@ -971,9 +971,9 @@ long long int GetScore(const int EliminateCount, int ThisColor){
 		return 100 * SCORE_OFFSET + EliminateCount * SCORE_OFFSET;
 }
 
-long long int CountScore(int Mark[COLUMN][ROW], const BOOL PuzzleTable[COLUMN][ROW], BOOL *MeetPuzzle, int *MeetPuzzleCount, int *Combo, BOOL *IsEliminateSix){
+long long int CountScore(int Mark[COLUMN][ROW], const BOOL PuzzleTable[COLUMN][ROW], BOOL *MeetPuzzle, int *MeetPuzzleCount, int *Combo, BOOL *IsEliminateSix, const int ColorCount[6], const int Table[COLUMN][ROW]){
 	long long int Score = 0;
-	int Index1, Index2;
+	int Index1, Index2, Index3, Index4;
 	int TargetPuzzleCount = 0;
 
 	for(Index1 = 0; Index1 < COLUMN; Index1++)
@@ -991,11 +991,37 @@ long long int CountScore(int Mark[COLUMN][ROW], const BOOL PuzzleTable[COLUMN][R
 			int EliminateCount = 0, PuzzleCount = 0;
 			MarkDFS(Mark, PuzzleTable, Index1, Index2, &EliminateCount, &PuzzleCount, ThisColor);
 
-			if(PuzzleCount == TargetPuzzleCount)
+			if(PuzzleCount == TargetPuzzleCount){
 				*MeetPuzzle = TRUE;
+				*MeetPuzzleCount = 0;
+			}else if(ColorCount[ThisColor - 1] >= TargetPuzzleCount && PuzzleCount != 0){
+				PuzzleCount = 0;
 
-			if(*MeetPuzzleCount < PuzzleCount)
-				*MeetPuzzleCount = PuzzleCount;
+				int MinDistance = MAX;
+				for(Index3 = 0; Index3 < COLUMN; Index3++)
+					for(Index4 = 0; Index4 < ROW; Index4++)
+						if(PuzzleTable[Index3][Index4] == TRUE)
+							if(Table[Index3][Index4] == ThisColor)
+								PuzzleCount += 10;
+							else{
+								int Index5, Index6;
+								for(Index5 = 0; Index5 < COLUMN; Index5++)
+									for(Index6 = 0; Index6 < ROW; Index6++){
+										if(PuzzleTable[Index5][Index6] == FALSE && Table[Index5][Index6] == ThisColor){
+											int Distance = 0;
+											Distance += (Index5 > Index3 ? Index5 - Index3 : Index3 - Index5);
+											Distance += (Index6 > Index4 ? Index6 - Index4 : Index4 - Index6);
+											if(MinDistance > Distance)
+												MinDistance = Distance;
+										}
+									}
+							}
+				if(MinDistance != MAX)
+					PuzzleCount += 10 - MinDistance;
+
+				if(*MeetPuzzleCount < PuzzleCount)
+					*MeetPuzzleCount = PuzzleCount;
+			}
 
 			Score += GetScore(EliminateCount, ThisColor);
 			if(EliminateCount > 5 && ThisColor != 2)
@@ -1060,19 +1086,19 @@ long long int EvaluateScore(const unsigned int SourceTable[COLUMN][ROW], const B
 					Change1 = TRUE;
 				}
 			}
-	
+
+		int TempTable[COLUMN][ROW];
+
 		for(Index1 = 0; Index1 < COLUMN; Index1++){
 			for(Index2 = 0; Index2 < ROW; Index2++){
+				TempTable[Index1][Index2] = LocalTable[Index1][Index2];
 				if(Mark[Index1][Index2] != -1){
 					LocalTable[Index1][Index2] = -1;
 				}
 			}
 		}
 
-		
-		Score += CountScore(Mark, PuzzleTable, &MeetPuzzle, &MeetPuzzleCount, &Combo, &IsEliminateSix);
-
-		int TempTable[COLUMN][ROW];
+		Score += CountScore(Mark, PuzzleTable, &MeetPuzzle, &MeetPuzzleCount, &Combo, &IsEliminateSix, FirstColorCount, TempTable);
 
 		for(Index1 = 0; Index1 < COLUMN; Index1++){
 			int Pointer = ROW - 1;
@@ -1149,8 +1175,8 @@ long long int EvaluateScore(const unsigned int SourceTable[COLUMN][ROW], const B
 	if(Score != 0){
 		if(MeetPuzzle == TRUE)
 			Score += MEET_PUZZLE_SCORE;
-
-		Score += MeetPuzzleCount * PARTIAL_MEET_PUZZLE_SCORE;
+		else
+			Score += MeetPuzzleCount * PARTIAL_MEET_PUZZLE_SCORE;
 	}
 
 	if(Score < LowerBoundScore - SCORE_OFFSET)
