@@ -1305,7 +1305,20 @@ void SearchBestPath(const int MovingType, const unsigned int CurrentTable[COLUMN
 	memset(DestinationPool, 0, sizeof(struct BFSNode) * MAX_REAL_KEEP_COUNT);
 	memset(BackupPool, 0, sizeof(struct BFSNode) * MAX_KEEP_COUNT * 50);
 
+	int ColorCount[7] = {0, 0, 0, 0, 0, 0, 0};
 	int Index1, Index2;
+	for(Index1 = 0; Index1 < COLUMN; Index1++)
+		for(Index2 = 0; Index2 < ROW; Index2++)
+			ColorCount[CurrentTable[Index1][Index2] - 1]++;
+
+	int MaxCombo = 0;
+	for(Index1 = 0; Index1 < 7; Index1++)
+		MaxCombo += ColorCount[Index1] / 3;
+
+	wchar_t LocalMessage[MAX_MESSAGE];
+	swprintf_s(LocalMessage, L"最多可能連擊數為 %d\r\n", MaxCombo);
+	StrCatW(DisplayMessage, LocalMessage);
+
 	for(Index1 = 0; Index1 < COLUMN; Index1++)
 		for(Index2 = 0; Index2 < ROW; Index2++){
 			SourcePool[SourceCount].StartX = Index1;
@@ -1354,7 +1367,9 @@ void SearchBestPath(const int MovingType, const unsigned int CurrentTable[COLUMN
 		if(Pause)
 			return;
 
-		#pragma omp parallel for private (Index1, Index2)
+		DWORD StartTime = GetTickCount();
+
+		#pragma omp parallel for private (Index1, Index2) schedule (dynamic, 1)
 		for(BFSIndex = 0; BFSIndex < (int) SourceCount; BFSIndex++){
 			struct BFSNode CurrentNode = SourcePool[BFSIndex];
 			if(CurrentNode.Searched == TRUE)
@@ -1451,16 +1466,20 @@ void SearchBestPath(const int MovingType, const unsigned int CurrentTable[COLUMN
 
 			}
 
-			#pragma omp critical
-			{
-				for(ShortPathIndex = 0; ShortPathIndex < MAX_SHORT_PATH_COUNT; ShortPathIndex++){
-					if(PushToDestination(DestinationPool, ShortPathBest[BFSIndex][ShortPathIndex], &DestinationCount, &LowerBoundScore))
-						ImproveFlag = TRUE;
+			for(ShortPathIndex = 0; ShortPathIndex < MAX_SHORT_PATH_COUNT; ShortPathIndex++){
+				if(ShortPathBest[BFSIndex][ShortPathIndex].Score != 0){
+					#pragma omp critical
+					{
+						if(PushToDestination(DestinationPool, ShortPathBest[BFSIndex][ShortPathIndex], &DestinationCount, &LowerBoundScore))
+							ImproveFlag = TRUE;
+					}
 				}
 			}
 		}
-		wchar_t LocalMessage[MAX_MESSAGE];
-		swprintf_s(LocalMessage, L"第 %d 回搜尋 (最多 %d 回，目標連擊數 %d): ", SearchRound + 1, (NeedTwoSecond ? Max2sSearch  : MaxSearch), TargetCombo);
+
+		DWORD EndTime = GetTickCount();
+
+		swprintf_s(LocalMessage, L"第 %d 回搜尋，花費 %d 毫秒 (最多 %d 回，目標連擊數 %d): ", SearchRound + 1, EndTime - StartTime, (NeedTwoSecond ? Max2sSearch  : MaxSearch), TargetCombo);
 		StrCatW(DisplayMessage, LocalMessage);
 
 		MoveDestinationToSource(SourcePool, &SourceCount, DestinationPool, &DestinationCount);
