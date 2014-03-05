@@ -77,6 +77,7 @@ CToS2Dlg::CToS2Dlg(CWnd* pParent /*=NULL*/)
 	, CheckCountHeartScore(TRUE)
 	, CheckForceKeep(FALSE)
 	, CheckPreview(FALSE)
+	, EditLowerBoundCombo(5)
 {
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 }
@@ -117,6 +118,7 @@ void CToS2Dlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Check(pDX, IDC_CHECK_Count_Heart_Score, CheckCountHeartScore);
 	DDX_Check(pDX, IDC_CHECK_Force_Keep, CheckForceKeep);
 	DDX_Check(pDX, IDC_CHECK_Preview, CheckPreview);
+	DDX_Text(pDX, IDC_EDIT_Combo_Lower_Bound, EditLowerBoundCombo);
 }
 
 BEGIN_MESSAGE_MAP(CToS2Dlg, CDialogEx)
@@ -143,6 +145,7 @@ DWORD ServerIPAddress = 0;
 BOOL ForceKeep = FALSE;
 HWND TransparentWindow;
 BOOL Preview;
+int LowerBoundCombo = 0;
 
 int MinKeep[6], MaxEliminate[6];
 BOOL ColorCountScore[6];
@@ -1191,6 +1194,9 @@ long long int EvaluateScore(const unsigned int SourceTable[COLUMN][ROW], const B
 	if(Score < LowerBoundScore - SCORE_OFFSET)
 		return 0;
 
+	if(TargetCombo == 0 && Combo < LowerBoundCombo)
+		return 0;
+
 	for(Index1 = 0; Index1 < COLUMN; Index1++)
 		for(Index2 = 0; Index2 < ROW; Index2++){
 			if(LocalTable[Index1][Index2] == -1 || LocalTable[Index1][Index2] == 7)
@@ -1444,6 +1450,7 @@ void SearchBestPath(const int MovingType, const unsigned int CurrentTable[COLUMN
 			memset(ShortPathBest[BFSIndex], 0, sizeof(struct BFSNode) * MAX_SHORT_PATH_COUNT);
 
 			unsigned int DFSIndex;
+			int LastShortStepSequence = -1;
 			for(DFSIndex = 0; DFSIndex < PreBuildPathCount[CurrentNode.ShortX][CurrentNode.ShortY]; DFSIndex++){
 				struct BFSNode NewNode = CurrentNode;
 				struct DFSPath ThisPath = PreBuildPath[CurrentNode.ShortX][CurrentNode.ShortY][DFSIndex];
@@ -1516,6 +1523,9 @@ void SearchBestPath(const int MovingType, const unsigned int CurrentTable[COLUMN
 
 				NewNode.Score = EvaluateScore(NewNode.Table, PuzzleTable, LowerBoundScore, &(NewNode.Combo));
 
+				if(NewNode.Score <= LowerBoundScore)
+					continue;
+
 				for(Index1 = 0; Index1 < COLUMN; Index1++)
 					for(Index2 = 0; Index2 < ROW; Index2++){
 						int Number = ThisPath.ShortTable[Index1][Index2];
@@ -1529,15 +1539,24 @@ void SearchBestPath(const int MovingType, const unsigned int CurrentTable[COLUMN
 				if(NewNode.Score > ShortPathBest[BFSIndex][ThisPath.ShortStepSequence].Score)
 					ShortPathBest[BFSIndex][ThisPath.ShortStepSequence] = NewNode;
 
+				if(LastShortStepSequence != ThisPath.ShortStepSequence){
+					if(LastShortStepSequence != -1){
+						#pragma omp critical
+						{
+							if(PushToDestination(DestinationPool, ShortPathBest[BFSIndex][LastShortStepSequence], &DestinationCount, &LowerBoundScore))
+								ImproveFlag = TRUE;
+							ShortPathBest[BFSIndex][LastShortStepSequence].Score = 0;
+						}					
+					}
+					LastShortStepSequence = ThisPath.ShortStepSequence;
+				}
 			}
 
-			for(ShortPathIndex = 0; ShortPathIndex < MAX_SHORT_PATH_COUNT; ShortPathIndex++){
-				if(ShortPathBest[BFSIndex][ShortPathIndex].Score != 0){
-					#pragma omp critical
-					{
-						if(PushToDestination(DestinationPool, ShortPathBest[BFSIndex][ShortPathIndex], &DestinationCount, &LowerBoundScore))
-							ImproveFlag = TRUE;
-					}
+			if(LastShortStepSequence != -1){
+				#pragma omp critical
+				{
+					if(PushToDestination(DestinationPool, ShortPathBest[BFSIndex][LastShortStepSequence], &DestinationCount, &LowerBoundScore))
+						ImproveFlag = TRUE;
 				}
 			}
 		}
@@ -2524,7 +2543,10 @@ void MainFunction(const SOCKET Connection){
 		memcpy(Pointer, MaxEliminate, sizeof(MaxEliminate));
 		Pointer += sizeof(MaxEliminate);
 		memcpy(Pointer, ColorCountScore, sizeof(ColorCountScore));
-		Pointer += sizeof(ColorCountScore);		
+		Pointer += sizeof(ColorCountScore);
+
+		memcpy(Pointer, &LowerBoundCombo, sizeof(LowerBoundCombo));
+		Pointer += sizeof(LowerBoundCombo);
 
 		send(Connection, SocketMessage, (int) (Pointer - SocketMessage), 0);
 	}
@@ -2559,7 +2581,10 @@ void MainFunction(const SOCKET Connection){
 		memcpy(MaxEliminate, Pointer, sizeof(MaxEliminate));
 		Pointer += sizeof(MaxEliminate);
 		memcpy(ColorCountScore, Pointer, sizeof(ColorCountScore));
-		Pointer += sizeof(ColorCountScore);		
+		Pointer += sizeof(ColorCountScore);
+
+		memcpy(&LowerBoundCombo, Pointer, sizeof(LowerBoundCombo));
+		Pointer += sizeof(LowerBoundCombo);
 	}
 
 	int MovingType;
@@ -2703,6 +2728,7 @@ void CToS2Dlg::OnTimer(UINT_PTR nIDEvent)
 	ServerIPAddress = ServerIP;
 	ForceKeep = CheckForceKeep;
 	Preview = CheckPreview;
+	LowerBoundCombo = EditLowerBoundCombo;
 
 	MinKeep[0] = MinLightKeep;
 	MinKeep[1] = MinHeartKeep;

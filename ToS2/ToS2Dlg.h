@@ -113,4 +113,5 @@ public:
 	afx_msg void OnBnClickedButtonDefault();
 	BOOL CheckForceKeep;
 	BOOL CheckPreview;
+	int EditLowerBoundCombo;
 };
