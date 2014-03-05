@@ -1580,27 +1580,18 @@ void SearchBestPath(const int MovingType, const unsigned int CurrentTable[COLUMN
 	return;
 }
 
-int RandomPosition(void){
-	unsigned int Amount;
-	rand_s(&Amount);
-	Amount = Amount % 13;
+int RandomPosition(int Amount){
+	int Index;
+	int ReturnValue = 0;
+	for(Index = 0; Index < Amount; Index++){
+		unsigned int RandomNumber;
+		rand_s(&RandomNumber);
+		RandomNumber = RandomNumber % 3;
+		RandomNumber--;
+		ReturnValue += RandomNumber;
+	}
 
-	int Amount2 = (int) Amount;
-	Amount2 = Amount2 - 6;
-	if(Amount2 < -5)
-		return -3;
-	else if(Amount2 < -3)
-		return -2;
-	else if(Amount2 < 0)
-		return -1;
-	else if(Amount2 > 5)
-		return 3;
-	else if(Amount2 > 3)
-		return 2;
-	else if(Amount2 > 0)
-		return 1;
-	else
-		return 0;
+	return ReturnValue;
 }
 
 void DisableWindow(BOOL Disable){
@@ -1647,8 +1638,8 @@ void MouseClick(const HWND GameApplication, const HWND GameWindow, const int X, 
 		INPUT Input;
 		Input.type = INPUT_MOUSE;
 
-		LocalX = (CurrentPosition.x * (MoveCount - Index) + X * Index) / MoveCount + (IsMouseDown ? 0 : RandomPosition());
-		LocalY = (CurrentPosition.y * (MoveCount - Index) + Y * Index) / MoveCount + (IsMouseDown ? 0 : RandomPosition());
+		LocalX = (CurrentPosition.x * (MoveCount - Index) + X * Index) / MoveCount + (IsMouseDown ? 0 : RandomPosition(3));
+		LocalY = (CurrentPosition.y * (MoveCount - Index) + Y * Index) / MoveCount + (IsMouseDown ? 0 : RandomPosition(3));
 		Input.mi.dx =  LocalX * 65536 / ScreenWidth;
 		Input.mi.dy =  LocalY * 65536 / ScreenHeight;
 
@@ -1935,8 +1926,8 @@ void MoveMouseHuman(const int MovingType, struct MouseActions *MouseAction){
 	while(1){
 		MouseAction->MousePointCount = 0;
 
-		MouseAction->MousePoints[MouseAction->MousePointCount].X = CenterX[MouseAction->StartX] + RandomPosition();
-		MouseAction->MousePoints[MouseAction->MousePointCount].Y = CenterY[MouseAction->StartY] + RandomPosition();
+		MouseAction->MousePoints[MouseAction->MousePointCount].X = CenterX[MouseAction->StartX] + RandomPosition(3);
+		MouseAction->MousePoints[MouseAction->MousePointCount].Y = CenterY[MouseAction->StartY] + RandomPosition(3);
 		MouseAction->MousePointCount++;
 
 		int NextX = MouseAction->StartX;
@@ -1975,8 +1966,8 @@ void MoveMouseHuman(const int MovingType, struct MouseActions *MouseAction){
 				NextX--;
 		}
 
-		MouseAction->MousePoints[MouseAction->MousePointCount].X = (CenterX[MouseAction->StartX] * 5 + CenterX[NextX] * 1) / 6 + RandomPosition();
-		MouseAction->MousePoints[MouseAction->MousePointCount].Y = (CenterY[MouseAction->StartY] * 5 + CenterY[NextY] * 1) / 6 + RandomPosition();
+		MouseAction->MousePoints[MouseAction->MousePointCount].X = (CenterX[MouseAction->StartX] * 5 + CenterX[NextX] * 1) / 6 + RandomPosition(3);
+		MouseAction->MousePoints[MouseAction->MousePointCount].Y = (CenterY[MouseAction->StartY] * 5 + CenterY[NextY] * 1) / 6 + RandomPosition(3);
 		MouseAction->MousePointCount++;
 
 		if(MovingType == 0){
@@ -1984,8 +1975,8 @@ void MoveMouseHuman(const int MovingType, struct MouseActions *MouseAction){
 			MouseAction->MousePoints[MouseAction->MousePointCount].Y = (CenterY[MouseAction->StartY] * 4 + CenterY[NextY] * 2) / 6;
 			MouseAction->MousePointCount++;
 		}else if(MovingType == 1){
-			MouseAction->MousePoints[MouseAction->MousePointCount].X = (CenterX[MouseAction->StartX] * 4 + CenterX[NextX] * 2) / 6 + RandomPosition();
-			MouseAction->MousePoints[MouseAction->MousePointCount].Y = (CenterY[MouseAction->StartY] * 4 + CenterY[NextY] * 2) / 6 + RandomPosition();
+			MouseAction->MousePoints[MouseAction->MousePointCount].X = (CenterX[MouseAction->StartX] * 4 + CenterX[NextX] * 2) / 6 + RandomPosition(3);
+			MouseAction->MousePoints[MouseAction->MousePointCount].Y = (CenterY[MouseAction->StartY] * 4 + CenterY[NextY] * 2) / 6 + RandomPosition(3);
 			MouseAction->MousePointCount++;
 		}
 
@@ -2226,60 +2217,60 @@ void MoveMouseHuman(const int MovingType, struct MouseActions *MouseAction){
 					StayCount = 5;
 
 				if(StayCount == 2){
-					MouseAction->MousePoints[MouseAction->MousePointCount].X = (CenterX[RealX0] * 47 + CenterX[X1] * 33) / 80 + RandomPosition();
-					MouseAction->MousePoints[MouseAction->MousePointCount].Y = (CenterY[RealY0] * 47 + CenterY[Y1] * 33) / 80 + RandomPosition();
+					MouseAction->MousePoints[MouseAction->MousePointCount].X = (CenterX[RealX0] * 47 + CenterX[X1] * 33) / 80 + RandomPosition(3);
+					MouseAction->MousePoints[MouseAction->MousePointCount].Y = (CenterY[RealY0] * 47 + CenterY[Y1] * 33) / 80 + RandomPosition(3);
 					MouseAction->MousePointCount++;
 
-					MouseAction->MousePoints[MouseAction->MousePointCount].X = (CenterX[RealX0] * 33 + CenterX[X1] * 47) / 80 + RandomPosition();
-					MouseAction->MousePoints[MouseAction->MousePointCount].Y = (CenterY[RealY0] * 33 + CenterY[Y1] * 47) / 80 + RandomPosition();
+					MouseAction->MousePoints[MouseAction->MousePointCount].X = (CenterX[RealX0] * 33 + CenterX[X1] * 47) / 80 + RandomPosition(3);
+					MouseAction->MousePoints[MouseAction->MousePointCount].Y = (CenterY[RealY0] * 33 + CenterY[Y1] * 47) / 80 + RandomPosition(3);
 					MouseAction->MousePointCount++;
 				}else if(StayCount == 3){
-					MouseAction->MousePoints[MouseAction->MousePointCount].X = (CenterX[RealX0] * 80 + CenterX[X1] * 40) / 120 + RandomPosition();
-					MouseAction->MousePoints[MouseAction->MousePointCount].Y = (CenterY[RealY0] * 80 + CenterY[Y1] * 40) / 120 + RandomPosition();
+					MouseAction->MousePoints[MouseAction->MousePointCount].X = (CenterX[RealX0] * 80 + CenterX[X1] * 40) / 120 + RandomPosition(3);
+					MouseAction->MousePoints[MouseAction->MousePointCount].Y = (CenterY[RealY0] * 80 + CenterY[Y1] * 40) / 120 + RandomPosition(3);
 					MouseAction->MousePointCount++;
 
-					MouseAction->MousePoints[MouseAction->MousePointCount].X = (CenterX[RealX0] * 60 + CenterX[X1] * 60) / 120 + RandomPosition();
-					MouseAction->MousePoints[MouseAction->MousePointCount].Y = (CenterY[RealY0] * 60 + CenterY[Y1] * 60) / 120 + RandomPosition();
+					MouseAction->MousePoints[MouseAction->MousePointCount].X = (CenterX[RealX0] * 60 + CenterX[X1] * 60) / 120 + RandomPosition(3);
+					MouseAction->MousePoints[MouseAction->MousePointCount].Y = (CenterY[RealY0] * 60 + CenterY[Y1] * 60) / 120 + RandomPosition(3);
 					MouseAction->MousePointCount++;
 
-					MouseAction->MousePoints[MouseAction->MousePointCount].X = (CenterX[RealX0] * 40 + CenterX[X1] * 80) / 120 + RandomPosition();
-					MouseAction->MousePoints[MouseAction->MousePointCount].Y = (CenterY[RealY0] * 40 + CenterY[Y1] * 80) / 120 + RandomPosition();
+					MouseAction->MousePoints[MouseAction->MousePointCount].X = (CenterX[RealX0] * 40 + CenterX[X1] * 80) / 120 + RandomPosition(3);
+					MouseAction->MousePoints[MouseAction->MousePointCount].Y = (CenterY[RealY0] * 40 + CenterY[Y1] * 80) / 120 + RandomPosition(3);
 					MouseAction->MousePointCount++;
 				}else if(StayCount == 4){
-					MouseAction->MousePoints[MouseAction->MousePointCount].X = (CenterX[RealX0] * 116 + CenterX[X1] * 44) / 160 + RandomPosition();
-					MouseAction->MousePoints[MouseAction->MousePointCount].Y = (CenterY[RealY0] * 116 + CenterY[Y1] * 44) / 160 + RandomPosition();
+					MouseAction->MousePoints[MouseAction->MousePointCount].X = (CenterX[RealX0] * 116 + CenterX[X1] * 44) / 160 + RandomPosition(3);
+					MouseAction->MousePoints[MouseAction->MousePointCount].Y = (CenterY[RealY0] * 116 + CenterY[Y1] * 44) / 160 + RandomPosition(3);
 					MouseAction->MousePointCount++;
 
-					MouseAction->MousePoints[MouseAction->MousePointCount].X = (CenterX[RealX0] * 92 + CenterX[X1] * 68) / 160 + RandomPosition();
-					MouseAction->MousePoints[MouseAction->MousePointCount].Y = (CenterY[RealY0] * 92 + CenterY[Y1] * 68) / 160 + RandomPosition();
+					MouseAction->MousePoints[MouseAction->MousePointCount].X = (CenterX[RealX0] * 92 + CenterX[X1] * 68) / 160 + RandomPosition(3);
+					MouseAction->MousePoints[MouseAction->MousePointCount].Y = (CenterY[RealY0] * 92 + CenterY[Y1] * 68) / 160 + RandomPosition(3);
 					MouseAction->MousePointCount++;
 
-					MouseAction->MousePoints[MouseAction->MousePointCount].X = (CenterX[RealX0] * 68 + CenterX[X1] * 92) / 160 + RandomPosition();
-					MouseAction->MousePoints[MouseAction->MousePointCount].Y = (CenterY[RealY0] * 68 + CenterY[Y1] * 92) / 160 + RandomPosition();
+					MouseAction->MousePoints[MouseAction->MousePointCount].X = (CenterX[RealX0] * 68 + CenterX[X1] * 92) / 160 + RandomPosition(3);
+					MouseAction->MousePoints[MouseAction->MousePointCount].Y = (CenterY[RealY0] * 68 + CenterY[Y1] * 92) / 160 + RandomPosition(3);
 					MouseAction->MousePointCount++;
 
-					MouseAction->MousePoints[MouseAction->MousePointCount].X = (CenterX[RealX0] * 44 + CenterX[X1] * 116) / 160 + RandomPosition();
-					MouseAction->MousePoints[MouseAction->MousePointCount].Y = (CenterY[RealY0] * 44 + CenterY[Y1] * 116) / 160 + RandomPosition();
+					MouseAction->MousePoints[MouseAction->MousePointCount].X = (CenterX[RealX0] * 44 + CenterX[X1] * 116) / 160 + RandomPosition(3);
+					MouseAction->MousePoints[MouseAction->MousePointCount].Y = (CenterY[RealY0] * 44 + CenterY[Y1] * 116) / 160 + RandomPosition(3);
 					MouseAction->MousePointCount++;
 				}else if(StayCount == 5){
-					MouseAction->MousePoints[MouseAction->MousePointCount].X = (CenterX[RealX0] * 154 + CenterX[X1] * 46) / 200 + RandomPosition();
-					MouseAction->MousePoints[MouseAction->MousePointCount].Y = (CenterY[RealY0] * 154 + CenterY[Y1] * 46) / 200 + RandomPosition();
+					MouseAction->MousePoints[MouseAction->MousePointCount].X = (CenterX[RealX0] * 154 + CenterX[X1] * 46) / 200 + RandomPosition(3);
+					MouseAction->MousePoints[MouseAction->MousePointCount].Y = (CenterY[RealY0] * 154 + CenterY[Y1] * 46) / 200 + RandomPosition(3);
 					MouseAction->MousePointCount++;
 
-					MouseAction->MousePoints[MouseAction->MousePointCount].X = (CenterX[RealX0] * 128 + CenterX[X1] * 72) / 200 + RandomPosition();
-					MouseAction->MousePoints[MouseAction->MousePointCount].Y = (CenterY[RealY0] * 128 + CenterY[Y1] * 72) / 200 + RandomPosition();
+					MouseAction->MousePoints[MouseAction->MousePointCount].X = (CenterX[RealX0] * 128 + CenterX[X1] * 72) / 200 + RandomPosition(3);
+					MouseAction->MousePoints[MouseAction->MousePointCount].Y = (CenterY[RealY0] * 128 + CenterY[Y1] * 72) / 200 + RandomPosition(3);
 					MouseAction->MousePointCount++;
 
-					MouseAction->MousePoints[MouseAction->MousePointCount].X = (CenterX[RealX0] * 100 + CenterX[X1] * 100) / 200 + RandomPosition();
-					MouseAction->MousePoints[MouseAction->MousePointCount].Y = (CenterY[RealY0] * 100 + CenterY[Y1] * 100) / 200 + RandomPosition();
+					MouseAction->MousePoints[MouseAction->MousePointCount].X = (CenterX[RealX0] * 100 + CenterX[X1] * 100) / 200 + RandomPosition(3);
+					MouseAction->MousePoints[MouseAction->MousePointCount].Y = (CenterY[RealY0] * 100 + CenterY[Y1] * 100) / 200 + RandomPosition(3);
 					MouseAction->MousePointCount++;
 
-					MouseAction->MousePoints[MouseAction->MousePointCount].X = (CenterX[RealX0] * 72 + CenterX[X1] * 128) / 200 + RandomPosition();
-					MouseAction->MousePoints[MouseAction->MousePointCount].Y = (CenterY[RealY0] * 72 + CenterY[Y1] * 128) / 200 + RandomPosition();
+					MouseAction->MousePoints[MouseAction->MousePointCount].X = (CenterX[RealX0] * 72 + CenterX[X1] * 128) / 200 + RandomPosition(3);
+					MouseAction->MousePoints[MouseAction->MousePointCount].Y = (CenterY[RealY0] * 72 + CenterY[Y1] * 128) / 200 + RandomPosition(3);
 					MouseAction->MousePointCount++;
 
-					MouseAction->MousePoints[MouseAction->MousePointCount].X = (CenterX[RealX0] * 46 + CenterX[X1] * 154) / 200 + RandomPosition();
-					MouseAction->MousePoints[MouseAction->MousePointCount].Y = (CenterY[RealY0] * 46 + CenterY[Y1] * 154) / 200 + RandomPosition();
+					MouseAction->MousePoints[MouseAction->MousePointCount].X = (CenterX[RealX0] * 46 + CenterX[X1] * 154) / 200 + RandomPosition(3);
+					MouseAction->MousePoints[MouseAction->MousePointCount].Y = (CenterY[RealY0] * 46 + CenterY[Y1] * 154) / 200 + RandomPosition(3);
 					MouseAction->MousePointCount++;
 				}
 			}
@@ -2290,29 +2281,29 @@ void MoveMouseHuman(const int MovingType, struct MouseActions *MouseAction){
 					MouseAction->MousePoints[MouseAction->MousePointCount].Y = (CenterY[Y0] * 2 + CenterY[Y1] * 4) / 6;
 					MouseAction->MousePointCount++;
 				}else{
-					MouseAction->MousePoints[MouseAction->MousePointCount].X = (CenterX[X0] * 2 + CenterX[X1] * 4) / 6 + RandomPosition();
-					MouseAction->MousePoints[MouseAction->MousePointCount].Y = (CenterY[Y0] * 2 + CenterY[Y1] * 4) / 6 + RandomPosition();
+					MouseAction->MousePoints[MouseAction->MousePointCount].X = (CenterX[X0] * 2 + CenterX[X1] * 4) / 6 + RandomPosition(3);
+					MouseAction->MousePoints[MouseAction->MousePointCount].Y = (CenterY[Y0] * 2 + CenterY[Y1] * 4) / 6 + RandomPosition(3);
 					MouseAction->MousePointCount++;
 				}
 
-				MouseAction->MousePoints[MouseAction->MousePointCount].X = (CenterX[X0] * 1 + CenterX[X1] * 5) / 6 + RandomPosition();
-				MouseAction->MousePoints[MouseAction->MousePointCount].Y = (CenterY[Y0] * 1 + CenterY[Y1] * 5) / 6 + RandomPosition();
+				MouseAction->MousePoints[MouseAction->MousePointCount].X = (CenterX[X0] * 1 + CenterX[X1] * 5) / 6 + RandomPosition(3);
+				MouseAction->MousePoints[MouseAction->MousePointCount].Y = (CenterY[Y0] * 1 + CenterY[Y1] * 5) / 6 + RandomPosition(3);
 				MouseAction->MousePointCount++;
 
-				MouseAction->MousePoints[MouseAction->MousePointCount].X = CenterX[X1] + RandomPosition();
-				MouseAction->MousePoints[MouseAction->MousePointCount].Y = CenterY[Y1] + RandomPosition();
+				MouseAction->MousePoints[MouseAction->MousePointCount].X = CenterX[X1] + RandomPosition(3);
+				MouseAction->MousePoints[MouseAction->MousePointCount].Y = CenterY[Y1] + RandomPosition(3);
 				MouseAction->MousePointCount++;
 
-				MouseAction->MousePoints[MouseAction->MousePointCount].X = CenterX[X1] + RandomPosition();
-				MouseAction->MousePoints[MouseAction->MousePointCount].Y = CenterY[Y1] + RandomPosition();
+				MouseAction->MousePoints[MouseAction->MousePointCount].X = CenterX[X1] + RandomPosition(3);
+				MouseAction->MousePoints[MouseAction->MousePointCount].Y = CenterY[Y1] + RandomPosition(3);
 				MouseAction->MousePointCount++;
 
-				MouseAction->MousePoints[MouseAction->MousePointCount].X = CenterX[X1] + RandomPosition();
-				MouseAction->MousePoints[MouseAction->MousePointCount].Y = CenterY[Y1] + RandomPosition();
+				MouseAction->MousePoints[MouseAction->MousePointCount].X = CenterX[X1] + RandomPosition(3);
+				MouseAction->MousePoints[MouseAction->MousePointCount].Y = CenterY[Y1] + RandomPosition(3);
 				MouseAction->MousePointCount++;
 
-				MouseAction->MousePoints[MouseAction->MousePointCount].X = CenterX[X1] + RandomPosition();
-				MouseAction->MousePoints[MouseAction->MousePointCount].Y = CenterY[Y1] + RandomPosition();
+				MouseAction->MousePoints[MouseAction->MousePointCount].X = CenterX[X1] + RandomPosition(3);
+				MouseAction->MousePoints[MouseAction->MousePointCount].Y = CenterY[Y1] + RandomPosition(3);
 				MouseAction->MousePointCount++;
 				break;
 			}
@@ -2339,17 +2330,17 @@ void MoveMouseHuman(const int MovingType, struct MouseActions *MouseAction){
 				MouseAction->MousePoints[MouseAction->MousePointCount].Y = PointY2;
 				MouseAction->MousePointCount++;
 			}else{
-				MouseAction->MousePoints[MouseAction->MousePointCount].X = PointX2 + RandomPosition();
-				MouseAction->MousePoints[MouseAction->MousePointCount].Y = PointY2 + RandomPosition();
+				MouseAction->MousePoints[MouseAction->MousePointCount].X = PointX2 + RandomPosition(3);
+				MouseAction->MousePoints[MouseAction->MousePointCount].Y = PointY2 + RandomPosition(3);
 				MouseAction->MousePointCount++;
 			}
 
-			MouseAction->MousePoints[MouseAction->MousePointCount].X = (PointX2 + PointX3 + PointX4) / 3 + RandomPosition();
-			MouseAction->MousePoints[MouseAction->MousePointCount].Y = (PointY2 + PointY3 + PointY4) / 3 + RandomPosition();
+			MouseAction->MousePoints[MouseAction->MousePointCount].X = (PointX2 + PointX3 + PointX4) / 3 + RandomPosition(3);
+			MouseAction->MousePoints[MouseAction->MousePointCount].Y = (PointY2 + PointY3 + PointY4) / 3 + RandomPosition(3);
 			MouseAction->MousePointCount++;
 
-			MouseAction->MousePoints[MouseAction->MousePointCount].X = PointX4 + RandomPosition();
-			MouseAction->MousePoints[MouseAction->MousePointCount].Y = PointY4 + RandomPosition();
+			MouseAction->MousePoints[MouseAction->MousePointCount].X = PointX4 + RandomPosition(3);
+			MouseAction->MousePoints[MouseAction->MousePointCount].Y = PointY4 + RandomPosition(3);
 			MouseAction->MousePointCount++;
 
 			unsigned int RandomNumber;
@@ -2363,23 +2354,23 @@ void MoveMouseHuman(const int MovingType, struct MouseActions *MouseAction){
 
 				int Index1;
 				for(Index1 = 0; Index1 < (int) RepeatCount; Index1++){
-					MouseAction->MousePoints[MouseAction->MousePointCount].X = PointX4 + RandomPosition();
-					MouseAction->MousePoints[MouseAction->MousePointCount].Y = PointY4 + RandomPosition();
+					MouseAction->MousePoints[MouseAction->MousePointCount].X = PointX4 + RandomPosition(3);
+					MouseAction->MousePoints[MouseAction->MousePointCount].Y = PointY4 + RandomPosition(3);
 					MouseAction->MousePointCount++;
 				}
 			}
 
-			MouseAction->MousePoints[MouseAction->MousePointCount].X = (PointX4 + PointX5 + PointX6) / 3 + RandomPosition();
-			MouseAction->MousePoints[MouseAction->MousePointCount].Y = (PointY4 + PointY5 + PointY6) / 3 + RandomPosition();
+			MouseAction->MousePoints[MouseAction->MousePointCount].X = (PointX4 + PointX5 + PointX6) / 3 + RandomPosition(3);
+			MouseAction->MousePoints[MouseAction->MousePointCount].Y = (PointY4 + PointY5 + PointY6) / 3 + RandomPosition(3);
 			MouseAction->MousePointCount++;
 
 			if(MovingType == 0){
-				MouseAction->MousePoints[MouseAction->MousePointCount].X = PointX6 + RandomPosition();
-				MouseAction->MousePoints[MouseAction->MousePointCount].Y = PointY6 + RandomPosition();
+				MouseAction->MousePoints[MouseAction->MousePointCount].X = PointX6 + RandomPosition(3);
+				MouseAction->MousePoints[MouseAction->MousePointCount].Y = PointY6 + RandomPosition(3);
 				MouseAction->MousePointCount++;
 			}else{
-				MouseAction->MousePoints[MouseAction->MousePointCount].X = PointX6 + RandomPosition();
-				MouseAction->MousePoints[MouseAction->MousePointCount].Y = PointY6 + RandomPosition();
+				MouseAction->MousePoints[MouseAction->MousePointCount].X = PointX6 + RandomPosition(3);
+				MouseAction->MousePoints[MouseAction->MousePointCount].Y = PointY6 + RandomPosition(3);
 				MouseAction->MousePointCount++;
 			}
 
@@ -2401,6 +2392,16 @@ void MoveMouseHuman(const int MovingType, struct MouseActions *MouseAction){
 
 		if(NeedTwoSecond == TRUE && MouseAction->MousePointCount < Max2sSmoothStep)
 			break;
+	}
+
+	if(MovingType == 1){
+		int GlobalShiftX = RandomPosition(12);
+		int GlobalShiftY = RandomPosition(12);
+		int Index;
+		for(Index = 0; Index < MouseAction->MousePointCount; Index++){
+			MouseAction->MousePoints[Index].X += GlobalShiftX;
+			MouseAction->MousePoints[Index].Y += GlobalShiftY;
+		}
 	}
 
 	static HWND GameApplication = NULL, GameWindow = NULL;
@@ -2436,18 +2437,18 @@ void MoveMouseHuman(const int MovingType, struct MouseActions *MouseAction){
 		MouseClick(GameApplication, GameWindow, MouseAction->MousePoints[Index].X + GameRect.left, MouseAction->MousePoints[Index].Y + GameRect.top, ScreenWidth, ScreenHeight, LocalSleep, GameRect.left, GameRect.top, ApplicationRect.left, ApplicationRect.top, ApplicationRect.right, ApplicationRect.bottom, &LastPosition, FALSE);
 	for(Index = 0; Index < MouseAction->MousePointCount; Index++){
 		if(Index == 0){
-			MouseClick(GameApplication, GameWindow, MouseAction->MousePoints[Index].X + GameRect.left + RandomPosition(), MouseAction->MousePoints[Index].Y + GameRect.top + RandomPosition(), ScreenWidth, ScreenHeight, INITIAL_SLEEP, GameRect.left, GameRect.top, ApplicationRect.left, ApplicationRect.top, ApplicationRect.right, ApplicationRect.bottom, &LastPosition, TRUE);
-			MouseClick(GameApplication, GameWindow, MouseAction->MousePoints[Index].X + GameRect.left + RandomPosition(), MouseAction->MousePoints[Index].Y + GameRect.top + RandomPosition(), ScreenWidth, ScreenHeight, INITIAL_SLEEP, GameRect.left, GameRect.top, ApplicationRect.left, ApplicationRect.top, ApplicationRect.right, ApplicationRect.bottom, &LastPosition, TRUE);
-			MouseClick(GameApplication, GameWindow, MouseAction->MousePoints[Index].X + GameRect.left + RandomPosition(), MouseAction->MousePoints[Index].Y + GameRect.top + RandomPosition(), ScreenWidth, ScreenHeight, INITIAL_SLEEP, GameRect.left, GameRect.top, ApplicationRect.left, ApplicationRect.top, ApplicationRect.right, ApplicationRect.bottom, &LastPosition, TRUE);
-			MouseClick(GameApplication, GameWindow, MouseAction->MousePoints[Index].X + GameRect.left + RandomPosition(), MouseAction->MousePoints[Index].Y + GameRect.top + RandomPosition(), ScreenWidth, ScreenHeight, INITIAL_SLEEP, GameRect.left, GameRect.top, ApplicationRect.left, ApplicationRect.top, ApplicationRect.right, ApplicationRect.bottom, &LastPosition, TRUE);
+			MouseClick(GameApplication, GameWindow, MouseAction->MousePoints[Index].X + GameRect.left + RandomPosition(3), MouseAction->MousePoints[Index].Y + GameRect.top + RandomPosition(3), ScreenWidth, ScreenHeight, INITIAL_SLEEP, GameRect.left, GameRect.top, ApplicationRect.left, ApplicationRect.top, ApplicationRect.right, ApplicationRect.bottom, &LastPosition, TRUE);
+			MouseClick(GameApplication, GameWindow, MouseAction->MousePoints[Index].X + GameRect.left + RandomPosition(3), MouseAction->MousePoints[Index].Y + GameRect.top + RandomPosition(3), ScreenWidth, ScreenHeight, INITIAL_SLEEP, GameRect.left, GameRect.top, ApplicationRect.left, ApplicationRect.top, ApplicationRect.right, ApplicationRect.bottom, &LastPosition, TRUE);
+			MouseClick(GameApplication, GameWindow, MouseAction->MousePoints[Index].X + GameRect.left + RandomPosition(3), MouseAction->MousePoints[Index].Y + GameRect.top + RandomPosition(3), ScreenWidth, ScreenHeight, INITIAL_SLEEP, GameRect.left, GameRect.top, ApplicationRect.left, ApplicationRect.top, ApplicationRect.right, ApplicationRect.bottom, &LastPosition, TRUE);
+			MouseClick(GameApplication, GameWindow, MouseAction->MousePoints[Index].X + GameRect.left + RandomPosition(3), MouseAction->MousePoints[Index].Y + GameRect.top + RandomPosition(3), ScreenWidth, ScreenHeight, INITIAL_SLEEP, GameRect.left, GameRect.top, ApplicationRect.left, ApplicationRect.top, ApplicationRect.right, ApplicationRect.bottom, &LastPosition, TRUE);
 		}
 		else
 			MouseClick(GameApplication, GameWindow, MouseAction->MousePoints[Index].X + GameRect.left, MouseAction->MousePoints[Index].Y + GameRect.top, ScreenWidth, ScreenHeight, LocalSleep, GameRect.left, GameRect.top, ApplicationRect.left, ApplicationRect.top, ApplicationRect.right, ApplicationRect.bottom, &LastPosition, TRUE);
 	}
-	MouseClick(GameApplication, GameWindow, MouseAction->MousePoints[Index - 1].X + GameRect.left + RandomPosition(), MouseAction->MousePoints[Index - 1].Y + GameRect.top + RandomPosition(), ScreenWidth, ScreenHeight, INITIAL_SLEEP, GameRect.left, GameRect.top, ApplicationRect.left, ApplicationRect.top, ApplicationRect.right, ApplicationRect.bottom, &LastPosition, TRUE);
-	MouseClick(GameApplication, GameWindow, MouseAction->MousePoints[Index - 1].X + GameRect.left + RandomPosition(), MouseAction->MousePoints[Index - 1].Y + GameRect.top + RandomPosition(), ScreenWidth, ScreenHeight, INITIAL_SLEEP, GameRect.left, GameRect.top, ApplicationRect.left, ApplicationRect.top, ApplicationRect.right, ApplicationRect.bottom, &LastPosition, TRUE);
-	MouseClick(GameApplication, GameWindow, MouseAction->MousePoints[Index - 1].X + GameRect.left + RandomPosition(), MouseAction->MousePoints[Index - 1].Y + GameRect.top + RandomPosition(), ScreenWidth, ScreenHeight, INITIAL_SLEEP, GameRect.left, GameRect.top, ApplicationRect.left, ApplicationRect.top, ApplicationRect.right, ApplicationRect.bottom, &LastPosition, TRUE);
-	MouseClick(GameApplication, GameWindow, MouseAction->MousePoints[Index - 1].X + GameRect.left + RandomPosition(), MouseAction->MousePoints[Index - 1].Y + GameRect.top + RandomPosition(), ScreenWidth, ScreenHeight, INITIAL_SLEEP, GameRect.left, GameRect.top, ApplicationRect.left, ApplicationRect.top, ApplicationRect.right, ApplicationRect.bottom, &LastPosition, TRUE);
+	MouseClick(GameApplication, GameWindow, MouseAction->MousePoints[Index - 1].X + GameRect.left + RandomPosition(3), MouseAction->MousePoints[Index - 1].Y + GameRect.top + RandomPosition(3), ScreenWidth, ScreenHeight, INITIAL_SLEEP, GameRect.left, GameRect.top, ApplicationRect.left, ApplicationRect.top, ApplicationRect.right, ApplicationRect.bottom, &LastPosition, TRUE);
+	MouseClick(GameApplication, GameWindow, MouseAction->MousePoints[Index - 1].X + GameRect.left + RandomPosition(3), MouseAction->MousePoints[Index - 1].Y + GameRect.top + RandomPosition(3), ScreenWidth, ScreenHeight, INITIAL_SLEEP, GameRect.left, GameRect.top, ApplicationRect.left, ApplicationRect.top, ApplicationRect.right, ApplicationRect.bottom, &LastPosition, TRUE);
+	MouseClick(GameApplication, GameWindow, MouseAction->MousePoints[Index - 1].X + GameRect.left + RandomPosition(3), MouseAction->MousePoints[Index - 1].Y + GameRect.top + RandomPosition(3), ScreenWidth, ScreenHeight, INITIAL_SLEEP, GameRect.left, GameRect.top, ApplicationRect.left, ApplicationRect.top, ApplicationRect.right, ApplicationRect.bottom, &LastPosition, TRUE);
+	MouseClick(GameApplication, GameWindow, MouseAction->MousePoints[Index - 1].X + GameRect.left + RandomPosition(3), MouseAction->MousePoints[Index - 1].Y + GameRect.top + RandomPosition(3), ScreenWidth, ScreenHeight, INITIAL_SLEEP, GameRect.left, GameRect.top, ApplicationRect.left, ApplicationRect.top, ApplicationRect.right, ApplicationRect.bottom, &LastPosition, TRUE);
 	MouseClick(GameApplication, GameWindow, MouseAction->MousePoints[Index - 1].X + GameRect.left, MouseAction->MousePoints[Index - 1].Y + GameRect.top, ScreenWidth, ScreenHeight, LocalSleep, GameRect.left, GameRect.top, ApplicationRect.left, ApplicationRect.top, ApplicationRect.right, ApplicationRect.bottom, &LastPosition, FALSE);
 }
 
