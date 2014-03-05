@@ -112,4 +112,5 @@ public:
 	BOOL CheckCountHeartScore;
 	afx_msg void OnBnClickedButtonDefault();
 	BOOL CheckForceKeep;
+	BOOL CheckPreview;
 };

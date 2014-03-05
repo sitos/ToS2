@@ -76,6 +76,7 @@ CToS2Dlg::CToS2Dlg(CWnd* pParent /*=NULL*/)
 	, CheckCountDarkScore(TRUE)
 	, CheckCountHeartScore(TRUE)
 	, CheckForceKeep(FALSE)
+	, CheckPreview(FALSE)
 {
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 }
@@ -115,6 +116,7 @@ void CToS2Dlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Check(pDX, IDC_CHECK_Count_Dark_Score, CheckCountDarkScore);
 	DDX_Check(pDX, IDC_CHECK_Count_Heart_Score, CheckCountHeartScore);
 	DDX_Check(pDX, IDC_CHECK_Force_Keep, CheckForceKeep);
+	DDX_Check(pDX, IDC_CHECK_Preview, CheckPreview);
 }
 
 BEGIN_MESSAGE_MAP(CToS2Dlg, CDialogEx)
@@ -140,6 +142,7 @@ int ExecutionType = 0;
 DWORD ServerIPAddress = 0;
 BOOL ForceKeep = FALSE;
 HWND TransparentWindow;
+BOOL Preview;
 
 int MinKeep[6], MaxEliminate[6];
 BOOL ColorCountScore[6];
@@ -1884,9 +1887,11 @@ int Move(const int MovingType, const struct BFSNode Path, struct DFSPath *PreBui
 	}
 
 	StrCatW(URL, L"&ctwMode=false");
-	/*
-	ShellExecute(NULL, L"open", URL, 0, 0, 1);
-	*/
+	if(Preview){
+		ShellExecute(NULL, L"open", URL, 0, 0, 1);
+		if(AfxMessageBox(L"是否執行本次計算結果？", MB_OKCANCEL) == IDCANCEL)
+			return 0;
+	}
 	return 1;
 }
 
@@ -2696,6 +2701,7 @@ void CToS2Dlg::OnTimer(UINT_PTR nIDEvent)
 	NoOblique = CheckNoOblique;
 	ServerIPAddress = ServerIP;
 	ForceKeep = CheckForceKeep;
+	Preview = CheckPreview;
 
 	MinKeep[0] = MinLightKeep;
 	MinKeep[1] = MinHeartKeep;
