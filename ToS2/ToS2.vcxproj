@@ -207,6 +207,7 @@
     <ClInclude Include="targetver.h" />
     <ClInclude Include="ToS2.h" />
     <ClInclude Include="ToS2Dlg.h" />
+    <ClInclude Include="TransparentDlg.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -217,6 +218,7 @@
     </ClCompile>
     <ClCompile Include="ToS2.cpp" />
     <ClCompile Include="ToS2Dlg.cpp" />
+    <ClCompile Include="TransparentDlg.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="ToS2.rc" />

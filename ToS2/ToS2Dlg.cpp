@@ -5,6 +5,7 @@
 #include "stdafx.h"
 #include "ToS2.h"
 #include "ToS2Dlg.h"
+#include "TransparentDlg.h"
 #include "afxdialogex.h"
 
 #ifdef _DEBUG
@@ -126,6 +127,32 @@ BEGIN_MESSAGE_MAP(CToS2Dlg, CDialogEx)
 	ON_BN_CLICKED(IDC_BUTTON_Default, &CToS2Dlg::OnBnClickedButtonDefault)
 END_MESSAGE_MAP()
 
+wchar_t DisplayMessage[MAX_DISPLAY_MESSAGE];
+int TargetCombo = 0;
+BOOL NeedHighPower = FALSE;
+BOOL NeedEliminateSix = FALSE;
+BOOL NeedTwoSecond = FALSE;
+BOOL EmulateHuman = FALSE;
+BOOL Pause = FALSE;
+BOOL RealMouse = FALSE;
+BOOL NoOblique = FALSE;
+int ExecutionType = 0;
+DWORD ServerIPAddress = 0;
+BOOL ForceKeep = FALSE;
+HWND TransparentWindow;
+
+int MinKeep[6], MaxEliminate[6];
+BOOL ColorCountScore[6];
+
+const int TargetX[COLUMN] = {36, 116, 196, 276, 356, 436};
+const int TargetY[ROW] = {426, 506, 586, 666, 746};
+
+const int CornerX[COLUMN] = {0, 80, 160, 240, 320, 400};
+const int CornerY[ROW] = {374, 454, 534, 614, 694};
+
+const int CenterX[COLUMN] = {40, 120, 200, 280, 360, 440};
+const int CenterY[ROW] = {414, 494, 574, 654, 734};
+
 // CToS2Dlg 訊息處理常式
 
 BOOL CToS2Dlg::OnInitDialog()
@@ -165,6 +192,11 @@ BOOL CToS2Dlg::OnInitDialog()
 	ComboExecutionType.AddString(L"伺服端");
 	ComboExecutionType.AddString(L"用戶端");
 	ComboExecutionType.SetCurSel(0);
+
+	CTransparentDlg *Dlg = new CTransparentDlg();
+	Dlg->Create(IDD_TRANSPARENT_DIALOG, this);
+	Dlg->SetWindowPos(&wndTopMost, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_HIDEWINDOW);
+	TransparentWindow = Dlg->m_hWnd;
 
 	return TRUE;  // 傳回 TRUE，除非您對控制項設定焦點
 }
@@ -217,32 +249,6 @@ HCURSOR CToS2Dlg::OnQueryDragIcon()
 {
 	return static_cast<HCURSOR>(m_hIcon);
 }
-
-wchar_t DisplayMessage[MAX_DISPLAY_MESSAGE];
-int TargetCombo = 0;
-BOOL NeedHighPower = FALSE;
-BOOL NeedEliminateSix = FALSE;
-BOOL NeedTwoSecond = FALSE;
-BOOL EmulateHuman = FALSE;
-BOOL Pause = FALSE;
-BOOL RealMouse = FALSE;
-BOOL NoOblique = FALSE;
-int ExecutionType = 0;
-DWORD ServerIPAddress = 0;
-BOOL ForceKeep = FALSE;
-
-int MinKeep[6], MaxEliminate[6];
-BOOL ColorCountScore[6];
-
-const int TargetX[COLUMN] = {36, 116, 196, 276, 356, 436};
-const int TargetY[ROW] = {426, 506, 586, 666, 746};
-
-const int CornerX[COLUMN] = {0, 80, 160, 240, 320, 400};
-const int CornerY[ROW] = {374, 454, 534, 614, 694};
-
-const int CenterX[COLUMN] = {40, 120, 200, 280, 360, 440};
-const int CenterY[ROW] = {414, 494, 574, 654, 734};
-
 
 struct MyColorRef{
 	BYTE Blue, Green, Red, Pending;
@@ -1594,6 +1600,37 @@ int RandomPosition(void){
 		return 0;
 }
 
+void DisableWindow(BOOL Disable){
+	HWND GameApplication = NULL, GameWindow = NULL;
+	if(IsWindow(GameWindow) == FALSE){
+		GameApplication = FindWindowEx(NULL, NULL, NULL, L"BlueStacks App Player for Windows (beta-1)");
+		GameWindow = FindWindowEx(GameApplication, NULL, NULL, L"_ctl.Window");
+	}
+
+	if(IsWindow(GameWindow) == FALSE)
+		return;
+
+	if(IsWindow(TransparentWindow) == FALSE)
+		return;
+
+	RECT AppRect;
+	GetWindowRect(GameApplication, &AppRect);
+	
+	if(Disable){
+		EnableWindow(GameApplication, FALSE);
+		SetWindowLong(TransparentWindow, GWL_EXSTYLE, GetWindowLong(TransparentWindow, GWL_EXSTYLE) | WS_EX_LAYERED);
+		SetLayeredWindowAttributes(TransparentWindow, 0, 1, LWA_ALPHA);
+		SetWindowPos(TransparentWindow, HWND_TOPMOST, AppRect.left - 5, AppRect.top - 5, AppRect.right - AppRect.left + 10, AppRect.bottom - AppRect.top + 10, SWP_SHOWWINDOW | SWP_NOACTIVATE);
+		SetWindowPos(GameApplication, HWND_NOTOPMOST, 0, 0, 486, 884, SWP_NOMOVE | SWP_SHOWWINDOW | SWP_NOACTIVATE);
+	}else{
+		EnableWindow(GameApplication, TRUE);
+		SetWindowLong(TransparentWindow, GWL_EXSTYLE, GetWindowLong(TransparentWindow, GWL_EXSTYLE) | WS_EX_LAYERED);
+		SetLayeredWindowAttributes(TransparentWindow, 0, 1, LWA_ALPHA);
+		SetWindowPos(GameApplication, HWND_TOPMOST, 0, 0, 486, 884, SWP_NOMOVE | SWP_SHOWWINDOW | SWP_NOACTIVATE);
+		SetWindowPos(TransparentWindow, HWND_NOTOPMOST, AppRect.left - 5, AppRect.top - 5, AppRect.right - AppRect.left + 10, AppRect.bottom - AppRect.top + 10, SWP_SHOWWINDOW | SWP_NOACTIVATE);
+	}
+}
+
 void MouseClick(const HWND GameApplication, const HWND GameWindow, const int X, const int Y, const int ScreenWidth, const int ScreenHeight, const int Delay, const int Left, const int Top, const int AppLeft, const int AppTop, const int AppRight, const int AppBottom, POINT *LastPosition, const BOOL IsMouseDown){
 	POINT CurrentPosition;
 	GetCursorPos(&CurrentPosition);
@@ -1637,13 +1674,16 @@ void MouseClick(const HWND GameApplication, const HWND GameWindow, const int X, 
 		Input.mi.time = 0;
 		Input.mi.dwExtraInfo = 0;
 
-		if(RealMouse)
-			SendInput(1, &Input, sizeof(Input));
-		else{
-			if(IsMouseDown)
-				SendNotifyMessage(GameApplication, WM_LBUTTONDOWN, MK_LBUTTON, (LocalX - Left) + (LocalY - Top + 1 /* correction for window mismatch? */) * 65536);
-			else
-				SendNotifyMessage(GameApplication, WM_LBUTTONUP, 0, (LocalX - Left) + (LocalY - Top + 1 /* correction for window mismatch? */) * 65536);
+		DisableWindow(TRUE);
+
+		if(IsMouseDown){
+			if(RealMouse)
+				SendInput(1, &Input, sizeof(Input));
+			SendNotifyMessage(GameApplication, WM_LBUTTONDOWN, MK_LBUTTON, (LocalX - Left) + (LocalY - Top + 1 /* correction for window mismatch? */) * 65536);
+		}else{
+			if(RealMouse)
+				SendInput(1, &Input, sizeof(Input));
+			SendNotifyMessage(GameApplication, WM_LBUTTONUP, 0, (LocalX - Left) + (LocalY - Top + 1 /* correction for window mismatch? */) * 65536);
 		}
 
 		Sleep(Delay / MoveCount);
@@ -2630,10 +2670,12 @@ void MainFunction(const SOCKET Connection){
 			return;
 
 		if(Move(MovingType, BestPath, PreBuildPath, StopTable, &MouseAction, URL)){
+			DisableWindow(TRUE);
 			if(EmulateHuman == FALSE)
 				MoveMouse(&MouseAction);
 			else
 				MoveMouseHuman(MovingType, &MouseAction);
+			DisableWindow(FALSE);
 			CleanDisplayMessage = TRUE;
 		}
 	}
