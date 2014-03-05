@@ -2603,11 +2603,11 @@ void MainFunction(const SOCKET Connection){
 		memcpy(&BestPath, SocketMessage, sizeof(BestPath));
 	}
 
-	unsigned int CurrentTable2[COLUMN][ROW];
-	BOOL PuzzleTable2[COLUMN][ROW];
-	BOOL StopTable2[COLUMN][ROW];
-
 	if(ExecutionType == 1 || ExecutionType == 3){
+		unsigned int CurrentTable2[COLUMN][ROW];
+		BOOL PuzzleTable2[COLUMN][ROW];
+		BOOL StopTable2[COLUMN][ROW];
+
 		CurrentTableResult = GetTable(CurrentTable2, PuzzleTable2, StopTable2);
 		if(CurrentTableResult == 0 || Pause){
 			Sleep(RETRY_SLEEP);
