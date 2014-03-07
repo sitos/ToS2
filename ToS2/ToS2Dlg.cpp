@@ -2479,6 +2479,11 @@ void MainFunction(const SOCKET Connection){
 	static unsigned int MultiMovePreBuildPathCount[COLUMN][ROW];
 	static BOOL CleanDisplayMessage = TRUE;
 
+	if(Pause){
+		Sleep(RETRY_SLEEP);
+		return;
+	}
+
 	if(DFSPathFlag == FALSE){
 		StrCatW(DisplayMessage, L"正在初始化搜尋路徑...\r\n");
 		int Index1, Index2;
