@@ -78,6 +78,7 @@ CToS2Dlg::CToS2Dlg(CWnd* pParent /*=NULL*/)
 	, CheckForceKeep(FALSE)
 	, CheckPreview(FALSE)
 	, EditLowerBoundCombo(5)
+	, CheckDynamicStop(FALSE)
 {
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 }
@@ -119,6 +120,7 @@ void CToS2Dlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Check(pDX, IDC_CHECK_Force_Keep, CheckForceKeep);
 	DDX_Check(pDX, IDC_CHECK_Preview, CheckPreview);
 	DDX_Text(pDX, IDC_EDIT_Combo_Lower_Bound, EditLowerBoundCombo);
+	DDX_Check(pDX, IDC_CHECK_Dynamic_Stop, CheckDynamicStop);
 }
 
 BEGIN_MESSAGE_MAP(CToS2Dlg, CDialogEx)
@@ -129,6 +131,8 @@ BEGIN_MESSAGE_MAP(CToS2Dlg, CDialogEx)
 	ON_BN_CLICKED(IDOK, &CToS2Dlg::OnBnClickedOk)
 	ON_CBN_SELCHANGE(IDC_COMBO_Type, &CToS2Dlg::OnSelchangeComboType)
 	ON_BN_CLICKED(IDC_BUTTON_Default, &CToS2Dlg::OnBnClickedButtonDefault)
+	ON_WM_CLOSE()
+	ON_BN_CLICKED(IDCANCEL, &CToS2Dlg::OnBnClickedCancel)
 END_MESSAGE_MAP()
 
 wchar_t DisplayMessage[MAX_DISPLAY_MESSAGE];
@@ -146,6 +150,7 @@ BOOL ForceKeep = FALSE;
 HWND TransparentWindow;
 BOOL Preview;
 int LowerBoundCombo = 0;
+BOOL DynamicStop = FALSE;
 
 int MinKeep[6], MaxEliminate[6];
 BOOL ColorCountScore[6];
@@ -367,9 +372,13 @@ int GetCurrentTable(const struct MyColorRef *ScreenColorBottom, const struct MyC
 		
 			struct MyColorRef PixelRGB = GetPixelColor(ScreenColorBottom, ScreenColorTop, ScreenWidth, ScreenHeight, GameRect, X, Y);
 			CurrentTable[Index1][Index2] = GetColorByRGB(PixelRGB);
+	}
+
+	for(Index1 = 0; Index1 < COLUMN; Index1++)
+		for(Index2 = 0; Index2 < ROW; Index2++)
 			if(CurrentTable[Index1][Index2] == 0)
 				return 0;
-	}
+
 	return 1;
 }
 
@@ -548,6 +557,56 @@ void PrintTable(const unsigned int CurrentTable[COLUMN][ROW], const BOOL PuzzleT
 	StrCatW(DisplayMessage, TitleLine);
 	for(Index2 = 0; Index2 < ROW; Index2++)
 		StrCatW(DisplayMessage, TableLine[Index2]);
+}
+
+int FindDynamicStop(int *StopX, int *StopY, int StartX, int StartY, int NextX, int NextY){
+	static HWND GameApplication = NULL, GameWindow = NULL;
+	static struct MyColorRef *ScreenColorBottom = NULL, *ScreenColorTop = NULL;
+
+	if(IsWindow(GameWindow) == FALSE){
+		GameApplication = FindWindowEx(NULL, NULL, NULL, L"BlueStacks App Player for Windows (beta-1)");
+		GameWindow = FindWindowEx(GameApplication, NULL, NULL, L"_ctl.Window");
+		SetWindowPos(GameApplication, HWND_TOPMOST, 0, 0, 486, 884, SWP_NOMOVE | SWP_SHOWWINDOW);
+	}
+
+	HDC ScreenDC = GetDC(HWND_DESKTOP);
+	int ScreenWidth = GetDeviceCaps(ScreenDC, HORZRES);
+	int ScreenHeight = GetDeviceCaps(ScreenDC, VERTRES);
+
+	if(ScreenColorBottom == NULL){
+		ScreenColorBottom = (struct MyColorRef*) malloc(sizeof(struct MyColorRef) * ScreenWidth * ScreenHeight);
+	}
+	if(ScreenColorTop == NULL){
+		ScreenColorTop = (struct MyColorRef*) malloc(sizeof(struct MyColorRef) * ScreenWidth * ScreenHeight);
+	}
+
+	CaptureScreenBottom(ScreenDC, ScreenColorBottom, ScreenWidth, ScreenHeight);
+	CaptureScreenTop(ScreenDC, ScreenColorTop, ScreenWidth, ScreenHeight);
+
+	RECT GameRect;
+	GetWindowRect(GameWindow, &GameRect);
+
+	if(GameRect.top < -1 * ScreenHeight || GameRect.bottom > ScreenHeight || GameRect.left < 0 || GameRect.right > ScreenWidth)
+		return 0;
+
+	unsigned int FirstCurrentTable[COLUMN][ROW];
+
+	if(GetCurrentTable(ScreenColorBottom, ScreenColorTop, ScreenWidth, ScreenHeight, GameRect, FirstCurrentTable) == 1)
+		return 0;
+
+	int Index1, Index2;
+	for(Index1 = 0; Index1 < COLUMN; Index1++)
+		for(Index2 = 0; Index2 < ROW; Index2++){
+			if(FirstCurrentTable[Index1][Index2] == 0 && (Index1 != NextX || Index2 != NextY) && (Index1 != NextX || Index2 != NextY - 1)){
+				*StopX = Index1;
+				*StopY = Index2;
+				return 1;
+			}
+		}
+
+	*StopX = NextX;
+	*StopY = NextY - 1;
+	return 1;
 }
 
 int GetTable(unsigned int CurrentTable[COLUMN][ROW], BOOL PuzzleTable[COLUMN][ROW], BOOL StopTable[COLUMN][ROW]){
@@ -1194,7 +1253,7 @@ long long int EvaluateScore(const unsigned int SourceTable[COLUMN][ROW], const B
 	if(Score < LowerBoundScore - SCORE_OFFSET)
 		return 0;
 
-	if(TargetCombo == 0 && Combo < LowerBoundCombo)
+	if(TargetCombo == 0 && DynamicStop == FALSE && Combo < LowerBoundCombo)
 		return 0;
 
 	for(Index1 = 0; Index1 < COLUMN; Index1++)
@@ -1365,7 +1424,7 @@ void MoveDestinationToBackup(struct BFSNode BackupPool[MAX_KEEP_COUNT * 50], uns
 	}
 }
 
-void SearchBestPath(const int MovingType, const unsigned int CurrentTable[COLUMN][ROW], const BOOL PuzzleTable[COLUMN][ROW], const BOOL StopTable[COLUMN][ROW], struct DFSPath *PreBuildPath[COLUMN][ROW], const unsigned int PreBuildPathCount[COLUMN][ROW], struct BFSNode *BestPath){
+void SearchBestPath(const int MovingType, const unsigned int CurrentTable[COLUMN][ROW], const BOOL PuzzleTable[COLUMN][ROW], const BOOL StopTable[COLUMN][ROW], struct DFSPath *PreBuildPath[COLUMN][ROW], const unsigned int PreBuildPathCount[COLUMN][ROW], struct BFSNode *BestPath, int DynamicStartX, int DynamicStartY){
 	struct BFSNode SourcePool[MAX_KEEP_COUNT];
 	struct BFSNode DestinationPool[MAX_REAL_KEEP_COUNT];
 	struct BFSNode BackupPool[MAX_KEEP_COUNT * 50];
@@ -1390,27 +1449,47 @@ void SearchBestPath(const int MovingType, const unsigned int CurrentTable[COLUMN
 	swprintf_s(LocalMessage, L"最多可能連擊數為 %d\r\n", MaxCombo);
 	StrCatW(DisplayMessage, LocalMessage);
 
-	for(Index1 = 0; Index1 < COLUMN; Index1++)
-		for(Index2 = 0; Index2 < ROW; Index2++){
-			SourcePool[SourceCount].StartX = Index1;
-			SourcePool[SourceCount].StartY = Index2;
-			SourcePool[SourceCount].ShortX = Index1;
-			SourcePool[SourceCount].ShortY = Index2;
-			SourcePool[SourceCount].CurrentX = Index1;
-			SourcePool[SourceCount].CurrentY = Index2;
+	if(DynamicStartX == -1 && DynamicStartY == -1){
+		for(Index1 = 0; Index1 < COLUMN; Index1++)
+			for(Index2 = 0; Index2 < ROW; Index2++){
+				SourcePool[SourceCount].StartX = Index1;
+				SourcePool[SourceCount].StartY = Index2;
+				SourcePool[SourceCount].ShortX = Index1;
+				SourcePool[SourceCount].ShortY = Index2;
+				SourcePool[SourceCount].CurrentX = Index1;
+				SourcePool[SourceCount].CurrentY = Index2;
 
-			int Index3, Index4;
-			for(Index3 = 0; Index3 < COLUMN; Index3++)
-				for(Index4 = 0; Index4 < ROW; Index4++)
-					SourcePool[SourceCount].Table[Index3][Index4] = CurrentTable[Index3][Index4];
+				int Index3, Index4;
+				for(Index3 = 0; Index3 < COLUMN; Index3++)
+					for(Index4 = 0; Index4 < ROW; Index4++)
+						SourcePool[SourceCount].Table[Index3][Index4] = CurrentTable[Index3][Index4];
 
-			SourcePool[SourceCount].DFSCount = 0;
-			SourcePool[SourceCount].Score = 0;
-			SourcePool[SourceCount].Searched = FALSE;
-			SourcePool[SourceCount].LastDirection = 0;
-			SourcePool[SourceCount].Combo = 0;
-			SourceCount++;
-		}
+				SourcePool[SourceCount].DFSCount = 0;
+				SourcePool[SourceCount].Score = 0;
+				SourcePool[SourceCount].Searched = FALSE;
+				SourcePool[SourceCount].LastDirection = 0;
+				SourcePool[SourceCount].Combo = 0;
+				SourceCount++;
+			}
+	}else{
+		SourcePool[SourceCount].StartX = DynamicStartX;
+		SourcePool[SourceCount].StartY = DynamicStartY;
+		SourcePool[SourceCount].ShortX = DynamicStartX;
+		SourcePool[SourceCount].ShortY = DynamicStartY;
+		SourcePool[SourceCount].CurrentX = DynamicStartX;
+		SourcePool[SourceCount].CurrentY = DynamicStartY;
+
+		for(Index1 = 0; Index1 < COLUMN; Index1++)
+			for(Index2 = 0; Index2 < ROW; Index2++)
+				SourcePool[SourceCount].Table[Index1][Index2] = CurrentTable[Index1][Index2];
+
+		SourcePool[SourceCount].DFSCount = 0;
+		SourcePool[SourceCount].Score = 0;
+		SourcePool[SourceCount].Searched = FALSE;
+		SourcePool[SourceCount].LastDirection = 0;
+		SourcePool[SourceCount].Combo = 0;
+		SourceCount++;
+	}
 
 	int SearchRound = 0;
 	long long int LowerBoundScore = 0;
@@ -1431,11 +1510,11 @@ void SearchBestPath(const int MovingType, const unsigned int CurrentTable[COLUMN
 		MaxSearch = MULTI_MOVE_MAX_SEARCH;
 	}
 
-	for(SearchRound = 0; SearchRound < (NeedTwoSecond ? Max2sSearch : MaxSearch); SearchRound++){
+	for(SearchRound = 0; SearchRound < ((NeedTwoSecond || DynamicStop) ? Max2sSearch : MaxSearch); SearchRound++){
 		int BFSIndex;
 		BOOL ImproveFlag = FALSE;
 
-		if(Pause)
+		if(Pause && DynamicStop == FALSE)
 			return;
 
 		DWORD StartTime = GetTickCount();
@@ -1563,7 +1642,7 @@ void SearchBestPath(const int MovingType, const unsigned int CurrentTable[COLUMN
 
 		DWORD EndTime = GetTickCount();
 
-		swprintf_s(LocalMessage, L"第 %d 回搜尋，花費 %d 毫秒 (最多 %d 回，目標連擊數 %d): ", SearchRound + 1, EndTime - StartTime, (NeedTwoSecond ? Max2sSearch  : MaxSearch), TargetCombo);
+		swprintf_s(LocalMessage, L"第 %d 回搜尋，花費 %d 毫秒 (最多 %d 回，目標連擊數 %d): ", SearchRound + 1, EndTime - StartTime, ((NeedTwoSecond || DynamicStop) ? Max2sSearch  : MaxSearch), TargetCombo);
 		StrCatW(DisplayMessage, LocalMessage);
 
 		MoveDestinationToSource(SourcePool, &SourceCount, DestinationPool, &DestinationCount);
@@ -1891,6 +1970,8 @@ int Move(const int MovingType, const struct BFSNode Path, struct DFSPath *PreBui
 		}
 	}
 
+	StrCatW(DisplayMessage, L"\r\n");
+
 	if(EmulateHuman){
 		MouseAction->DirectionSequence[MouseAction->DirectionCount] = 0;
 		MouseAction->DirectionCount++;
@@ -1905,7 +1986,7 @@ int Move(const int MovingType, const struct BFSNode Path, struct DFSPath *PreBui
 	return 1;
 }
 
-void MoveMouse(const struct MouseActions *MouseAction){
+void MoveMouse(const struct MouseActions *MouseAction, int MovingStage){
 	static HWND GameApplication = NULL, GameWindow = NULL;
 	HDC ScreenDC = GetDC(HWND_DESKTOP);
 	int ScreenWidth = GetDeviceCaps(ScreenDC, HORZRES);
@@ -1925,22 +2006,29 @@ void MoveMouse(const struct MouseActions *MouseAction){
 	RECT ApplicationRect;
 	GetWindowRect(GameApplication, &ApplicationRect);
 
-	POINT LastPosition;
-	LastPosition.x = (ApplicationRect.left + ApplicationRect.right) / 2;
-	LastPosition.y = (ApplicationRect.top + ApplicationRect.bottom) / 2;
+	static POINT LastPosition;
+	if(DynamicStop == FALSE || MovingStage == 1){
+		LastPosition.x = (ApplicationRect.left + ApplicationRect.right) / 2;
+		LastPosition.y = (ApplicationRect.top + ApplicationRect.bottom) / 2;
+	}
 
 	int Index = 0;
-	MouseClick(GameApplication, GameWindow, CenterX[MouseAction->MousePoints[Index].X] + GameRect.left, CenterY[MouseAction->MousePoints[Index].Y] + GameRect.top, ScreenWidth, ScreenHeight, INITIAL_SLEEP, GameRect.left, GameRect.top, ApplicationRect.left, ApplicationRect.top, ApplicationRect.right, ApplicationRect.bottom, &LastPosition, FALSE);
+	if(DynamicStop == FALSE || MovingStage == 1)
+		MouseClick(GameApplication, GameWindow, CenterX[MouseAction->MousePoints[Index].X] + GameRect.left, CenterY[MouseAction->MousePoints[Index].Y] + GameRect.top, ScreenWidth, ScreenHeight, INITIAL_SLEEP, GameRect.left, GameRect.top, ApplicationRect.left, ApplicationRect.top, ApplicationRect.right, ApplicationRect.bottom, &LastPosition, FALSE);
 	for(Index = 0; Index < MouseAction->MousePointCount; Index++){
+		if(MovingStage == 1 && Index == 2)
+			break;
 		MouseClick(GameApplication, GameWindow, CenterX[MouseAction->MousePoints[Index].X] + GameRect.left, CenterY[MouseAction->MousePoints[Index].Y] + GameRect.top, ScreenWidth, ScreenHeight, MOUSE_SLEEP, GameRect.left, GameRect.top, ApplicationRect.left, ApplicationRect.top, ApplicationRect.right, ApplicationRect.bottom, &LastPosition, TRUE);
 		if(Index == 0)
 			Sleep(INITIAL_SLEEP);
 	}
-	MouseClick(GameApplication, GameWindow, CenterX[MouseAction->MousePoints[Index - 1].X] + GameRect.left, CenterY[MouseAction->MousePoints[Index - 1].Y] + GameRect.top, ScreenWidth, ScreenHeight, MOUSE_SLEEP, GameRect.left, GameRect.top, ApplicationRect.left, ApplicationRect.top, ApplicationRect.right, ApplicationRect.bottom, &LastPosition, TRUE);
-	MouseClick(GameApplication, GameWindow, CenterX[MouseAction->MousePoints[Index - 1].X] + GameRect.left, CenterY[MouseAction->MousePoints[Index - 1].Y] + GameRect.top, ScreenWidth, ScreenHeight, MOUSE_SLEEP, GameRect.left, GameRect.top, ApplicationRect.left, ApplicationRect.top, ApplicationRect.right, ApplicationRect.bottom, &LastPosition, FALSE);
+	if(MovingStage != 1){
+		MouseClick(GameApplication, GameWindow, CenterX[MouseAction->MousePoints[Index - 1].X] + GameRect.left, CenterY[MouseAction->MousePoints[Index - 1].Y] + GameRect.top, ScreenWidth, ScreenHeight, MOUSE_SLEEP, GameRect.left, GameRect.top, ApplicationRect.left, ApplicationRect.top, ApplicationRect.right, ApplicationRect.bottom, &LastPosition, TRUE);
+		MouseClick(GameApplication, GameWindow, CenterX[MouseAction->MousePoints[Index - 1].X] + GameRect.left, CenterY[MouseAction->MousePoints[Index - 1].Y] + GameRect.top, ScreenWidth, ScreenHeight, MOUSE_SLEEP, GameRect.left, GameRect.top, ApplicationRect.left, ApplicationRect.top, ApplicationRect.right, ApplicationRect.bottom, &LastPosition, FALSE);
+	}
 }
 
-void MoveMouseHuman(const int MovingType, struct MouseActions *MouseAction){
+void MoveMouseHuman(const int MovingType, struct MouseActions *MouseAction, int MovingStage){
 	// sitos: need to optimize the path of multi-move scheme
 	while(1){
 		MouseAction->MousePointCount = 0;
@@ -2003,6 +2091,19 @@ void MoveMouseHuman(const int MovingType, struct MouseActions *MouseAction){
 		int Y0 = MouseAction->StartY;
 		int RealX0 = X0;
 		int RealY0 = Y0;
+
+		if(MovingStage == 1){
+			MouseAction->DirectionCount = 2;
+			MouseAction->DirectionSequence[1] = 0;
+			if(MouseAction->DirectionSequence[0] > 1 && MouseAction->DirectionSequence[0] < 5)
+				MouseAction->DirectionSequence[0] = 1;
+			else if(MouseAction->DirectionSequence[0] > 5 && MouseAction->DirectionSequence[0] < 10)
+				MouseAction->DirectionSequence[0] = 5;
+			else if(MouseAction->DirectionSequence[0] > 10 && MouseAction->DirectionSequence[0] < 14)
+				MouseAction->DirectionSequence[0] = 10;
+			else if(MouseAction->DirectionSequence[0] > 14 && MouseAction->DirectionSequence[0] < 19)
+				MouseAction->DirectionSequence[0] = 14;				
+		}
 
 		int Index;
 		for(Index = 0; Index < MouseAction->DirectionCount - 1; Index++){
@@ -2406,16 +2507,21 @@ void MoveMouseHuman(const int MovingType, struct MouseActions *MouseAction){
 			Max2sSmoothStep = MULTI_MOVE_MAX_2S_SMOOTH_STEP;
 		}
 
-		if(NeedTwoSecond == FALSE && MouseAction->MousePointCount < MaxSmoothStep)
+		if(NeedTwoSecond == FALSE && DynamicStop == FALSE && MouseAction->MousePointCount < MaxSmoothStep)
 			break;
 
-		if(NeedTwoSecond == TRUE && MouseAction->MousePointCount < Max2sSmoothStep)
+		if((NeedTwoSecond == TRUE || DynamicStop == TRUE) && MouseAction->MousePointCount < Max2sSmoothStep)
 			break;
 	}
 
 	if(MovingType == 1){
-		int GlobalShiftX = RandomPosition(12);
-		int GlobalShiftY = RandomPosition(12);
+		static int GlobalShiftX = 0;
+		static int GlobalShiftY = 0;
+		if(DynamicStop == FALSE || MovingStage == 1){
+			static int GlobalShiftX = RandomPosition(12);
+			static int GlobalShiftY = RandomPosition(12);
+		}
+
 		int Index;
 		for(Index = 0; Index < MouseAction->MousePointCount; Index++){
 			MouseAction->MousePoints[Index].X += GlobalShiftX;
@@ -2442,20 +2548,29 @@ void MoveMouseHuman(const int MovingType, struct MouseActions *MouseAction){
 	RECT ApplicationRect;
 	GetWindowRect(GameApplication, &ApplicationRect);
 
-	POINT LastPosition;
-	LastPosition.x = (ApplicationRect.left + ApplicationRect.right) / 2;
-	LastPosition.y = (ApplicationRect.top + ApplicationRect.bottom) / 2;
+	static POINT LastPosition;
+	if(DynamicStop == FALSE || MovingStage == 1){
+		LastPosition.x = (ApplicationRect.left + ApplicationRect.right) / 2;
+		LastPosition.y = (ApplicationRect.top + ApplicationRect.bottom) / 2;
+	}
 
 	int LocalSleep;
-	LocalSleep = (NeedTwoSecond ? 1800 : 4800) / (MouseAction->MousePointCount);
+	LocalSleep = ((NeedTwoSecond || DynamicStop) ? 1800 : 4800) / (MouseAction->MousePointCount);
+
+	if(DynamicStop == TRUE && MovingStage == 1)
+		LocalSleep = (200 / MouseAction->MousePointCount);
+	if(DynamicStop == TRUE && MovingStage == 0)
+		LocalSleep = (2800 / MouseAction->MousePointCount);
 
 	int Index = 0;
-	if(RealMouse)
-		MouseClick(GameApplication, GameWindow, MouseAction->MousePoints[Index].X + GameRect.left, MouseAction->MousePoints[Index].Y + GameRect.top, ScreenWidth, ScreenHeight, INITIAL_SLEEP * 4, GameRect.left, GameRect.top, ApplicationRect.left, ApplicationRect.top, ApplicationRect.right, ApplicationRect.bottom, &LastPosition, FALSE);
-	else
-		MouseClick(GameApplication, GameWindow, MouseAction->MousePoints[Index].X + GameRect.left, MouseAction->MousePoints[Index].Y + GameRect.top, ScreenWidth, ScreenHeight, LocalSleep, GameRect.left, GameRect.top, ApplicationRect.left, ApplicationRect.top, ApplicationRect.right, ApplicationRect.bottom, &LastPosition, FALSE);
+	if(DynamicStop == FALSE || MovingStage == 1){
+		if(RealMouse)
+			MouseClick(GameApplication, GameWindow, MouseAction->MousePoints[Index].X + GameRect.left, MouseAction->MousePoints[Index].Y + GameRect.top, ScreenWidth, ScreenHeight, INITIAL_SLEEP * 4, GameRect.left, GameRect.top, ApplicationRect.left, ApplicationRect.top, ApplicationRect.right, ApplicationRect.bottom, &LastPosition, FALSE);
+		else
+			MouseClick(GameApplication, GameWindow, MouseAction->MousePoints[Index].X + GameRect.left, MouseAction->MousePoints[Index].Y + GameRect.top, ScreenWidth, ScreenHeight, LocalSleep, GameRect.left, GameRect.top, ApplicationRect.left, ApplicationRect.top, ApplicationRect.right, ApplicationRect.bottom, &LastPosition, FALSE);
+	}
 	for(Index = 0; Index < MouseAction->MousePointCount; Index++){
-		if(Index == 0){
+		if(Index == 0 && (DynamicStop == FALSE || MovingStage == 1)){
 			MouseClick(GameApplication, GameWindow, MouseAction->MousePoints[Index].X + GameRect.left + RandomPosition(3), MouseAction->MousePoints[Index].Y + GameRect.top + RandomPosition(3), ScreenWidth, ScreenHeight, INITIAL_SLEEP, GameRect.left, GameRect.top, ApplicationRect.left, ApplicationRect.top, ApplicationRect.right, ApplicationRect.bottom, &LastPosition, TRUE);
 			MouseClick(GameApplication, GameWindow, MouseAction->MousePoints[Index].X + GameRect.left + RandomPosition(3), MouseAction->MousePoints[Index].Y + GameRect.top + RandomPosition(3), ScreenWidth, ScreenHeight, INITIAL_SLEEP, GameRect.left, GameRect.top, ApplicationRect.left, ApplicationRect.top, ApplicationRect.right, ApplicationRect.bottom, &LastPosition, TRUE);
 			MouseClick(GameApplication, GameWindow, MouseAction->MousePoints[Index].X + GameRect.left + RandomPosition(3), MouseAction->MousePoints[Index].Y + GameRect.top + RandomPosition(3), ScreenWidth, ScreenHeight, INITIAL_SLEEP, GameRect.left, GameRect.top, ApplicationRect.left, ApplicationRect.top, ApplicationRect.right, ApplicationRect.bottom, &LastPosition, TRUE);
@@ -2464,11 +2579,13 @@ void MoveMouseHuman(const int MovingType, struct MouseActions *MouseAction){
 		else
 			MouseClick(GameApplication, GameWindow, MouseAction->MousePoints[Index].X + GameRect.left, MouseAction->MousePoints[Index].Y + GameRect.top, ScreenWidth, ScreenHeight, LocalSleep, GameRect.left, GameRect.top, ApplicationRect.left, ApplicationRect.top, ApplicationRect.right, ApplicationRect.bottom, &LastPosition, TRUE);
 	}
-	MouseClick(GameApplication, GameWindow, MouseAction->MousePoints[Index - 1].X + GameRect.left + RandomPosition(3), MouseAction->MousePoints[Index - 1].Y + GameRect.top + RandomPosition(3), ScreenWidth, ScreenHeight, INITIAL_SLEEP, GameRect.left, GameRect.top, ApplicationRect.left, ApplicationRect.top, ApplicationRect.right, ApplicationRect.bottom, &LastPosition, TRUE);
-	MouseClick(GameApplication, GameWindow, MouseAction->MousePoints[Index - 1].X + GameRect.left + RandomPosition(3), MouseAction->MousePoints[Index - 1].Y + GameRect.top + RandomPosition(3), ScreenWidth, ScreenHeight, INITIAL_SLEEP, GameRect.left, GameRect.top, ApplicationRect.left, ApplicationRect.top, ApplicationRect.right, ApplicationRect.bottom, &LastPosition, TRUE);
-	MouseClick(GameApplication, GameWindow, MouseAction->MousePoints[Index - 1].X + GameRect.left + RandomPosition(3), MouseAction->MousePoints[Index - 1].Y + GameRect.top + RandomPosition(3), ScreenWidth, ScreenHeight, INITIAL_SLEEP, GameRect.left, GameRect.top, ApplicationRect.left, ApplicationRect.top, ApplicationRect.right, ApplicationRect.bottom, &LastPosition, TRUE);
-	MouseClick(GameApplication, GameWindow, MouseAction->MousePoints[Index - 1].X + GameRect.left + RandomPosition(3), MouseAction->MousePoints[Index - 1].Y + GameRect.top + RandomPosition(3), ScreenWidth, ScreenHeight, INITIAL_SLEEP, GameRect.left, GameRect.top, ApplicationRect.left, ApplicationRect.top, ApplicationRect.right, ApplicationRect.bottom, &LastPosition, TRUE);
-	MouseClick(GameApplication, GameWindow, MouseAction->MousePoints[Index - 1].X + GameRect.left, MouseAction->MousePoints[Index - 1].Y + GameRect.top, ScreenWidth, ScreenHeight, LocalSleep, GameRect.left, GameRect.top, ApplicationRect.left, ApplicationRect.top, ApplicationRect.right, ApplicationRect.bottom, &LastPosition, FALSE);
+	if(MovingStage != 1){
+		MouseClick(GameApplication, GameWindow, MouseAction->MousePoints[Index - 1].X + GameRect.left + RandomPosition(3), MouseAction->MousePoints[Index - 1].Y + GameRect.top + RandomPosition(3), ScreenWidth, ScreenHeight, INITIAL_SLEEP, GameRect.left, GameRect.top, ApplicationRect.left, ApplicationRect.top, ApplicationRect.right, ApplicationRect.bottom, &LastPosition, TRUE);
+		MouseClick(GameApplication, GameWindow, MouseAction->MousePoints[Index - 1].X + GameRect.left + RandomPosition(3), MouseAction->MousePoints[Index - 1].Y + GameRect.top + RandomPosition(3), ScreenWidth, ScreenHeight, INITIAL_SLEEP, GameRect.left, GameRect.top, ApplicationRect.left, ApplicationRect.top, ApplicationRect.right, ApplicationRect.bottom, &LastPosition, TRUE);
+		MouseClick(GameApplication, GameWindow, MouseAction->MousePoints[Index - 1].X + GameRect.left + RandomPosition(3), MouseAction->MousePoints[Index - 1].Y + GameRect.top + RandomPosition(3), ScreenWidth, ScreenHeight, INITIAL_SLEEP, GameRect.left, GameRect.top, ApplicationRect.left, ApplicationRect.top, ApplicationRect.right, ApplicationRect.bottom, &LastPosition, TRUE);
+		MouseClick(GameApplication, GameWindow, MouseAction->MousePoints[Index - 1].X + GameRect.left + RandomPosition(3), MouseAction->MousePoints[Index - 1].Y + GameRect.top + RandomPosition(3), ScreenWidth, ScreenHeight, INITIAL_SLEEP, GameRect.left, GameRect.top, ApplicationRect.left, ApplicationRect.top, ApplicationRect.right, ApplicationRect.bottom, &LastPosition, TRUE);
+		MouseClick(GameApplication, GameWindow, MouseAction->MousePoints[Index - 1].X + GameRect.left, MouseAction->MousePoints[Index - 1].Y + GameRect.top, ScreenWidth, ScreenHeight, LocalSleep, GameRect.left, GameRect.top, ApplicationRect.left, ApplicationRect.top, ApplicationRect.right, ApplicationRect.bottom, &LastPosition, FALSE);
+	}
 }
 
 void MainFunction(const SOCKET Connection){
@@ -2497,7 +2614,7 @@ void MainFunction(const SOCKET Connection){
 		BuildDFSPath(0, SingleMovePreBuildPath, SingleMovePreBuildPathCount);
 		BuildDFSPath(1, MultiMovePreBuildPath, MultiMovePreBuildPathCount);
 		DFSPathFlag = TRUE;
-	}	
+	}
 
 	unsigned int CurrentTable[COLUMN][ROW];
 	BOOL PuzzleTable[COLUMN][ROW];
@@ -2517,6 +2634,189 @@ void MainFunction(const SOCKET Connection){
 		}
 
 		PrintTable(CurrentTable, PuzzleTable, StopTable);
+	}
+
+	int DynamicStartX = -1, DynamicStartY = -1;
+	if(DynamicStop){
+		int MovingType;
+		if(NoOblique)
+			MovingType = 1;
+		else
+			MovingType = 0;
+
+		struct BFSNode BestPath;
+		memset(&BestPath, 0, sizeof(BestPath));
+
+		StrCatW(DisplayMessage, L"開始搜尋路徑...\r\n");
+	
+		if(MovingType == 0)
+			SearchBestPath(MovingType, CurrentTable, PuzzleTable, StopTable, SingleMovePreBuildPath, SingleMovePreBuildPathCount, &BestPath, DynamicStartX, DynamicStartY);
+		else if(MovingType == 1)
+			SearchBestPath(MovingType, CurrentTable, PuzzleTable, StopTable, MultiMovePreBuildPath, MultiMovePreBuildPathCount, &BestPath, DynamicStartX, DynamicStartY);
+
+		if(Pause)
+			return;
+
+		if(BestPath.Score == 0){
+			StrCatW(DisplayMessage, L"找不到適合的解\r\n");
+			return;
+		}
+
+		unsigned int CurrentTable2[COLUMN][ROW];
+		BOOL PuzzleTable2[COLUMN][ROW];
+		BOOL StopTable2[COLUMN][ROW];
+
+		CurrentTableResult = GetTable(CurrentTable2, PuzzleTable2, StopTable2);
+		if(CurrentTableResult == 0 || Pause){
+			Sleep(RETRY_SLEEP);
+			return;
+		}
+
+		int Index1, Index2;
+		for(Index1 = 0; Index1 < COLUMN; Index1++)
+			for(Index2 = 0; Index2 < ROW; Index2++){
+				if(CurrentTable[Index1][Index2] != CurrentTable2[Index1][Index2]){
+					Sleep(RETRY_SLEEP);
+					return;
+				}
+				if(PuzzleTable[Index1][Index2] != PuzzleTable2[Index1][Index2]){
+					Sleep(RETRY_SLEEP);
+					return;
+				}
+				if(StopTable[Index1][Index2] != StopTable2[Index1][Index2]){
+					Sleep(RETRY_SLEEP);
+					return;
+				}
+			}
+
+		StrCatW(DisplayMessage, L"移動滑鼠...\r\n");
+
+		struct MouseActions MouseAction;
+		MouseAction.MousePointCount = 0;
+		MouseAction.DirectionCount = 0;
+
+		wchar_t LocalMessage[MAX_MESSAGE];
+
+		swprintf_s(LocalMessage, L"預計效果: 連擊數: %d, 拼圖盾: %s, 原始分數: %lld\r\n", BestPath.Combo, (BestPath.Score >= MEET_PUZZLE_SCORE ? L"已達成" : L"未達成"), BestPath.Score);
+		StrCatW(DisplayMessage, LocalMessage);
+
+		int StartX = BestPath.StartX;
+		int StartY = BestPath.StartY;
+
+		int MaxDirection, StepSequence, DirectionCount;
+		if(MovingType == 0){
+			MaxDirection = SINGLE_MOVE_DIRECTION;
+			StepSequence = SingleMovePreBuildPath[StartX][StartY][BestPath.DFSIndex[0]].ShortStepSequence;
+			DirectionCount = SingleMovePreBuildPath[StartX][StartY][BestPath.DFSIndex[0]].ShortStepCount;
+		}
+		else if(MovingType == 1){
+			MaxDirection = MULTI_MOVE_DIRECTION;
+			StepSequence = MultiMovePreBuildPath[StartX][StartY][BestPath.DFSIndex[0]].ShortStepSequence;
+			DirectionCount = MultiMovePreBuildPath[StartX][StartY][BestPath.DFSIndex[0]].ShortStepCount;
+		}
+
+		int Direction;
+		int Index;
+		for(Index = 0; Index < DirectionCount; Index++){
+			Direction = StepSequence % (MaxDirection + 1);
+			StepSequence /= (MaxDirection + 1);
+		}
+
+		int NextX = StartX, NextY = StartY;
+		if(MovingType == 0){
+			if(Direction == 1){
+				NextY--;
+			}else if(Direction == 2){
+				NextX++;
+			}else if(Direction == 3){
+				NextY++;
+			}else if(Direction == 4){
+				NextX--;
+			}else if(Direction == 5){
+				NextX++;
+				NextY--;
+			}else if(Direction == 6){
+				NextX++;
+				NextY++;
+			}else if(Direction == 7){
+				NextX--;
+				NextY++;
+			}else if(Direction == 8){
+				NextX--;
+				NextY--;
+			}
+		}else if(MovingType == 1){
+			if(Direction == 1 || Direction == 2 || Direction == 3 || Direction == 4)
+				NextY--;
+			else if(Direction == 5 || Direction == 6 || Direction == 7 || Direction == 8 || Direction == 9)
+				NextX++;
+			else if(Direction == 10 || Direction == 11 || Direction == 12 || Direction == 13)
+				NextY++;
+			else if(Direction == 14 || Direction == 15 || Direction == 16 || Direction == 17 || Direction == 18)
+				NextX--;
+		}
+
+		int Temp = CurrentTable[StartX][StartY];
+		CurrentTable[StartX][StartY] = CurrentTable[NextX][NextY];
+		CurrentTable[NextX][NextY] = Temp;
+
+		struct DFSPath *PreBuildPath[COLUMN][ROW];
+		for(Index1 = 0; Index1 < COLUMN; Index1++)
+			for(Index2 = 0; Index2 < ROW; Index2++)
+				if(MovingType == 0)
+					PreBuildPath[Index1][Index2] = SingleMovePreBuildPath[Index1][Index2];
+				else
+					PreBuildPath[Index1][Index2] = MultiMovePreBuildPath[Index1][Index2];
+
+		if(Pause)
+			return;
+
+		wchar_t URL[MAX_MESSAGE];
+		StrCpyW(URL, L"http://serizawa.web5.jp/puzzdra_theory_maker/index.html?layout=");
+
+		for(Index2 = 0; Index2 < ROW; Index2++)
+			for(Index1 = 0; Index1 < COLUMN; Index1++)
+				if(CurrentTable[Index1][Index2] == 1)
+					StrCatW(URL, L"3");
+				else if(CurrentTable[Index1][Index2] == 2)
+					StrCatW(URL, L"5");
+				else if(CurrentTable[Index1][Index2] == 3)
+					StrCatW(URL, L"2");
+				else if(CurrentTable[Index1][Index2] == 4)
+					StrCatW(URL, L"4");
+				else if(CurrentTable[Index1][Index2] == 5)
+					StrCatW(URL, L"1");
+				else if(CurrentTable[Index1][Index2] == 6)
+					StrCatW(URL, L"0");
+				else if(CurrentTable[Index1][Index2] == 7)
+					StrCatW(URL, L"6");
+
+		if(Move(MovingType, BestPath, PreBuildPath, StopTable, &MouseAction, URL)){
+			DisableWindow(TRUE);
+			if(EmulateHuman == FALSE)
+				MoveMouse(&MouseAction, 1);
+			else
+				MoveMouseHuman(MovingType, &MouseAction, 1);
+		}
+
+		int StopX, StopY;
+		Sleep(500);
+		while(1){
+			if(FindDynamicStop(&StopX, &StopY, StartX, StartY, NextX, NextY)){
+				StopTable[StopX][StopY] = TRUE;
+				DynamicStartX = NextX;
+				DynamicStartY = NextY;
+				PrintTable(CurrentTable, PuzzleTable, StopTable);
+
+				wchar_t LocalMessage[SHORT_MESSAGE];
+				swprintf_s(LocalMessage, L"啟始位置 (%d, %d) -> 一步位置 (%d, %d)\r\n", StartX, StartY, NextX, NextY);
+				StrCatW(DisplayMessage, LocalMessage);
+				break;
+			}else{
+				StrCatW(DisplayMessage, L"找不到風化珠\r\n");
+				Sleep(500);
+			}
+		}
 	}
 
 	if(ExecutionType == 3){
@@ -2605,11 +2905,11 @@ void MainFunction(const SOCKET Connection){
 		StrCatW(DisplayMessage, L"開始搜尋路徑...\r\n");
 	
 		if(MovingType == 0)
-			SearchBestPath(MovingType, CurrentTable, PuzzleTable, StopTable, SingleMovePreBuildPath, SingleMovePreBuildPathCount, &BestPath);
+			SearchBestPath(MovingType, CurrentTable, PuzzleTable, StopTable, SingleMovePreBuildPath, SingleMovePreBuildPathCount, &BestPath, DynamicStartX, DynamicStartY);
 		else if(MovingType == 1)
-			SearchBestPath(MovingType, CurrentTable, PuzzleTable, StopTable, MultiMovePreBuildPath, MultiMovePreBuildPathCount, &BestPath);
+			SearchBestPath(MovingType, CurrentTable, PuzzleTable, StopTable, MultiMovePreBuildPath, MultiMovePreBuildPathCount, &BestPath, DynamicStartX, DynamicStartY);
 
-		if(Pause)
+		if(Pause && DynamicStop == FALSE)
 			return;
 
 		if(BestPath.Score == 0){
@@ -2635,33 +2935,34 @@ void MainFunction(const SOCKET Connection){
 	}
 
 	if(ExecutionType == 1 || ExecutionType == 3){
-		unsigned int CurrentTable2[COLUMN][ROW];
-		BOOL PuzzleTable2[COLUMN][ROW];
-		BOOL StopTable2[COLUMN][ROW];
-
-		CurrentTableResult = GetTable(CurrentTable2, PuzzleTable2, StopTable2);
-		if(CurrentTableResult == 0 || Pause){
-			Sleep(RETRY_SLEEP);
-			return;
-		}
-
 		int Index1, Index2;
-		for(Index1 = 0; Index1 < COLUMN; Index1++)
-			for(Index2 = 0; Index2 < ROW; Index2++){
-				if(CurrentTable[Index1][Index2] != CurrentTable2[Index1][Index2]){
-					Sleep(RETRY_SLEEP);
-					return;
-				}
-				if(PuzzleTable[Index1][Index2] != PuzzleTable2[Index1][Index2]){
-					Sleep(RETRY_SLEEP);
-					return;
-				}
-				if(StopTable[Index1][Index2] != StopTable2[Index1][Index2]){
-					Sleep(RETRY_SLEEP);
-					return;
-				}
+		if(DynamicStop == FALSE){
+			unsigned int CurrentTable2[COLUMN][ROW];
+			BOOL PuzzleTable2[COLUMN][ROW];
+			BOOL StopTable2[COLUMN][ROW];
+
+			CurrentTableResult = GetTable(CurrentTable2, PuzzleTable2, StopTable2);
+			if(CurrentTableResult == 0 || Pause){
+				Sleep(RETRY_SLEEP);
+				return;
 			}
 
+			for(Index1 = 0; Index1 < COLUMN; Index1++)
+				for(Index2 = 0; Index2 < ROW; Index2++){
+					if(CurrentTable[Index1][Index2] != CurrentTable2[Index1][Index2]){
+						Sleep(RETRY_SLEEP);
+						return;
+					}
+					if(PuzzleTable[Index1][Index2] != PuzzleTable2[Index1][Index2]){
+						Sleep(RETRY_SLEEP);
+						return;
+					}
+					if(StopTable[Index1][Index2] != StopTable2[Index1][Index2]){
+						Sleep(RETRY_SLEEP);
+						return;
+					}
+				}
+		}
 
 		StrCatW(DisplayMessage, L"移動滑鼠...\r\n");
 
@@ -2702,15 +3003,15 @@ void MainFunction(const SOCKET Connection){
 				else
 					PreBuildPath[Index1][Index2] = MultiMovePreBuildPath[Index1][Index2];
 
-		if(Pause)
+		if(Pause && DynamicStop == FALSE)
 			return;
 
 		if(Move(MovingType, BestPath, PreBuildPath, StopTable, &MouseAction, URL)){
 			DisableWindow(TRUE);
 			if(EmulateHuman == FALSE)
-				MoveMouse(&MouseAction);
+				MoveMouse(&MouseAction, 0);
 			else
-				MoveMouseHuman(MovingType, &MouseAction);
+				MoveMouseHuman(MovingType, &MouseAction, 0);
 			DisableWindow(FALSE);
 			CleanDisplayMessage = TRUE;
 		}
@@ -2734,6 +3035,7 @@ void CToS2Dlg::OnTimer(UINT_PTR nIDEvent)
 	ForceKeep = CheckForceKeep;
 	Preview = CheckPreview;
 	LowerBoundCombo = EditLowerBoundCombo;
+	DynamicStop = CheckDynamicStop;
 
 	MinKeep[0] = MinLightKeep;
 	MinKeep[1] = MinHeartKeep;
@@ -2866,4 +3168,20 @@ void CToS2Dlg::OnBnClickedButtonDefault()
 	MaxLightEliminate = MaxHeartEliminate = MaxWaterEliminate = MaxDarkEliminate = MaxWoodEliminate = MaxFireEliminate = -1;
 	CheckCountLightScore = CheckCountHeartScore = CheckCountWaterScore = CheckCountDarkScore = CheckCountWoodScore = CheckCountFireScore = TRUE;
 	UpdateData(FALSE);
+}
+
+
+void CToS2Dlg::OnClose()
+{
+	// TODO: 在此加入您的訊息處理常式程式碼和 (或) 呼叫預設值
+	DisableWindow(FALSE);
+	CDialogEx::OnClose();
+}
+
+
+void CToS2Dlg::OnBnClickedCancel()
+{
+	// TODO: 在此加入控制項告知處理常式程式碼
+	DisableWindow(FALSE);
+	CDialogEx::OnCancel();
 }

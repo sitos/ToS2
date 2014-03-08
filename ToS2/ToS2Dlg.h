@@ -37,7 +37,7 @@
 
 #define MOUSE_SLEEP		170
 #define INITIAL_SLEEP	250
-#define RETRY_SLEEP		200
+#define RETRY_SLEEP		2000
 #define SMOOTH_SLEEP	12
 
 #define SHORT_MESSAGE	1024
@@ -114,4 +114,7 @@ public:
 	BOOL CheckForceKeep;
 	BOOL CheckPreview;
 	int EditLowerBoundCombo;
+	BOOL CheckDynamicStop;
+	afx_msg void OnClose();
+	afx_msg void OnBnClickedCancel();
 };
