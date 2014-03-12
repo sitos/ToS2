@@ -293,7 +293,7 @@ int GetColorByRGB(const struct MyColorRef PixelRGB){
 		else
 			return 0;
 	}
-	if(CompareRGB(PixelRGB, 255, 149, 176) || CompareRGB(PixelRGB, 254, 129, 161)){ // «G¯»
+	if(CompareRGB(PixelRGB, 255, 149, 176) || CompareRGB(PixelRGB, 254, 129, 161) || CompareRGB(PixelRGB, 219, 123, 148)){ // «G¯»
 		if(Color == 0)
 			Color = 2;
 		else
@@ -305,19 +305,19 @@ int GetColorByRGB(const struct MyColorRef PixelRGB){
 		else
 			return 0;
 	}
-	if(CompareRGB(PixelRGB, 254, 255, 255)){ // «GÂÅ
+	if(CompareRGB(PixelRGB, 254, 255, 255) || CompareRGB(PixelRGB, 214, 215, 215)){ // «GÂÅ
 		if(Color == 0)
 			Color = 3;
 		else
 			return 0;
 	}
-	if(CompareRGB(PixelRGB, 124, 0, 126)){ // ·tµµ
+	if(CompareRGB(PixelRGB, 124, 0, 126) || CompareRGB(PixelRGB, 106, 20, 109)){ // ·tµµ
 		if(Color == 0)
 			Color = 4;
 		else
 			return 0;
 	}
-	if(CompareRGB(PixelRGB, 201, 33, 245) || CompareRGB(PixelRGB, 200, 13, 245) || CompareRGB(PixelRGB, 180, 18, 217)){ // «Gµµ
+	if(CompareRGB(PixelRGB, 201, 33, 245) || CompareRGB(PixelRGB, 200, 13, 245) || CompareRGB(PixelRGB, 180, 18, 217) || CompareRGB(PixelRGB, 167, 33, 197)){ // «Gµµ
 		if(Color == 0)
 			Color = 4;
 		else
@@ -1104,9 +1104,10 @@ long long int CountScore(int Mark[COLUMN][ROW], const BOOL PuzzleTable[COLUMN][R
 	return Score;
 }
 
-long long int EvaluateScore(const unsigned int SourceTable[COLUMN][ROW], const BOOL PuzzleTable[COLUMN][ROW], const long long int LowerBoundScore, int *FinalCombo){
+long long int EvaluateScore(const unsigned int SourceTable[COLUMN][ROW], const BOOL PuzzleTable[COLUMN][ROW], const BOOL StopTable[COLUMN][ROW], const long long int LowerBoundScore, int *FinalCombo){
 	int Index1, Index2;
 	int Mark[COLUMN][ROW], LocalTable[COLUMN][ROW];
+	BOOL LocalStopTable[COLUMN][ROW];
 	int Combo = 0;
 	long long int Score = 0;
 	BOOL MeetPuzzle = FALSE;
@@ -1116,6 +1117,7 @@ long long int EvaluateScore(const unsigned int SourceTable[COLUMN][ROW], const B
 	BOOL IsEliminateSix = FALSE;
 
 	int FirstColorCount[6], SecondColorCount[6];
+	int FirstStopCount = 0, SecondStopCount = 0;
 
 	for(Index1 = 0; Index1 < 6; Index1++){
 		FirstColorCount[Index1] = 0;
@@ -1125,8 +1127,11 @@ long long int EvaluateScore(const unsigned int SourceTable[COLUMN][ROW], const B
 	for(Index1 = 0; Index1 < COLUMN; Index1++)
 		for(Index2 = 0; Index2 < ROW; Index2++){
 			LocalTable[Index1][Index2] = SourceTable[Index1][Index2];
+			LocalStopTable[Index1][Index2] = StopTable[Index1][Index2];
 			if(LocalTable[Index1][Index2] > 0 && LocalTable[Index1][Index2] < 7)
 				FirstColorCount[LocalTable[Index1][Index2] - 1]++;
+			if(LocalStopTable[Index1][Index2] == TRUE)
+				FirstStopCount++;
 		}
 
 	while(1){
@@ -1159,10 +1164,12 @@ long long int EvaluateScore(const unsigned int SourceTable[COLUMN][ROW], const B
 			}
 
 		int TempTable[COLUMN][ROW];
+		BOOL TempStopTable[COLUMN][ROW];
 
 		for(Index1 = 0; Index1 < COLUMN; Index1++){
 			for(Index2 = 0; Index2 < ROW; Index2++){
 				TempTable[Index1][Index2] = LocalTable[Index1][Index2];
+				TempStopTable[Index1][Index2] = LocalStopTable[Index1][Index2];
 				if(Mark[Index1][Index2] != -1){
 					LocalTable[Index1][Index2] = -1;
 				}
@@ -1176,16 +1183,21 @@ long long int EvaluateScore(const unsigned int SourceTable[COLUMN][ROW], const B
 			for(Index2 = ROW - 1; Index2 >= 0; Index2--){
 				if(LocalTable[Index1][Index2] != -1){
 					TempTable[Index1][Pointer] = LocalTable[Index1][Index2];
+					TempStopTable[Index1][Pointer] = LocalStopTable[Index1][Index2];
 					Pointer--;
 				}
 			}
-			for(; Pointer >= 0; Pointer--)
+			for(; Pointer >= 0; Pointer--){
 				TempTable[Index1][Pointer] = -1;
+				TempStopTable[Index1][Pointer] = FALSE;
+			}
 		}
 
 		for(Index1 = 0; Index1 < COLUMN; Index1++)
-			for(Index2 = 0; Index2 < ROW; Index2++)
+			for(Index2 = 0; Index2 < ROW; Index2++){
 				LocalTable[Index1][Index2] = TempTable[Index1][Index2];
+				LocalStopTable[Index1][Index2] = TempStopTable[Index1][Index2];
+			}
 
 		if(Change1 == TRUE)
 			Score -= AdditionalScore;
@@ -1221,7 +1233,11 @@ long long int EvaluateScore(const unsigned int SourceTable[COLUMN][ROW], const B
 		for(Index2 = 0; Index2 < ROW; Index2++){
 			if(LocalTable[Index1][Index2] > 0 && LocalTable[Index1][Index2] < 7)
 				SecondColorCount[LocalTable[Index1][Index2] - 1]++;
+			if(LocalStopTable[Index1][Index2] == TRUE)
+				SecondStopCount++;
 		}
+
+	Score += (FirstStopCount - SecondStopCount) * ELIMINATE_STOP_SCORE;
 
 	for(Index1 = 0; Index1 < 6; Index1++){
 		if(MinKeep[Index1] != -1 && FirstColorCount[Index1] >= MinKeep[Index1] && SecondColorCount[Index1] < MinKeep[Index1])
@@ -1600,7 +1616,7 @@ void SearchBestPath(const int MovingType, const unsigned int CurrentTable[COLUMN
 				NewNode.DFSCount++;
 				NewNode.Searched = FALSE;
 
-				NewNode.Score = EvaluateScore(NewNode.Table, PuzzleTable, LowerBoundScore, &(NewNode.Combo));
+				NewNode.Score = EvaluateScore(NewNode.Table, PuzzleTable, StopTable, LowerBoundScore, &(NewNode.Combo));
 
 				if(NewNode.Score <= LowerBoundScore)
 					continue;
